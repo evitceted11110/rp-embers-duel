@@ -1,0 +1,253 @@
+{
+  "schema_version": 1,
+  "marks": [
+    {
+      "id": "ember-core",
+      "name": "餘燼核心",
+      "school": "ember",
+      "keystone": true,
+      "changes_actions": ["dodge", "q"],
+      "slot": "q",
+      "requires": null,
+      "trigger": "施放 Q",
+      "effect": {
+        "type": "place-ember-core-then-dodge-detonate",
+        "place_distance_units": 2.0,
+        "arm_delay_s": 2.0,
+        "q_cooldown_s": 5,
+        "detonate_radius_units": 1.8,
+        "detonate_damage": 18,
+        "post_detonate_attack_bonus_pct": 25,
+        "post_detonate_attack_bonus_duration_s": 1.5
+      },
+      "decision_change": "Q 不再是位移突進斬，改為在固定地面座標放置一枚餘燼核；核心武裝後不會主動傷害經過的敵人，玩家必須主動規劃走位，讓下一次閃避的路徑掃過核心才能引爆。",
+      "visible_feedback": "餘燼核為固定圖示：未武裝時暗紅脈動、武裝後轉為實心橘光並帶外環；當範圍內存在武裝核心時，閃避的位移軌跡從直線變為朝核心微幅彎曲的弧線，掃過即爆閃。",
+      "differentiation_note": "Windblown 的 Corrosive Wake 與 Pathogenic 的 Pyroflagellum 都是「閃避／衝刺本身自動產生一段會傷害經過者的拖尾」——傷害來源與觸發者是同一個動作、且拖尾對任何經過的敵人都生效。本設計反過來：傷害物件由『普攻／Q 攻擊動作』放置在固定點，武裝前後兩秒內完全不具攻擊性，且不會因敵人經過而觸發——只有玩家自己的閃避路徑掃過才會引爆；閃避的位移形狀因此從直線變成朝核心彎曲的弧線，這是「閃避幾何被攻擊動作的产物重塑」而非「閃避本身生成傷害區域」，因果方向與兩款競品相反。",
+      "design_rationale": "detonate_damage 18 ≈ 普攻第三段傷害(16)×1.1，讓『延遲觸發且需要精準走位』的主動引爆比被動拖尾承擔更高風險也換更高回報；arm_delay_s=2.0 給敵人可利用的破壞/迴避窗口，避免核心變成安全區域拒止；post_detonate_attack_bonus_duration_s=1.5 對齊一次三段連擊平均時長(≈1.1s)加緩衝，確保引爆後有明確且短暫的輸出窗口而非常駐加成。"
+    },
+    {
+      "id": "cracking-flame-combo",
+      "name": "裂焰連擊",
+      "school": "ember",
+      "keystone": false,
+      "changes_actions": ["attack"],
+      "slot": null,
+      "requires": null,
+      "trigger": "普攻第三段命中",
+      "effect": {
+        "type": "third-hit-cone-upgrade",
+        "cone_degrees": 120,
+        "cone_range_units": 2.2,
+        "damage": 20,
+        "base_third_hit_damage": 16,
+        "secondary_splash_damage": 6
+      },
+      "decision_change": "普攻第三段從單體突刺改為 120° 扇形火波，用來清理環繞的雜兵群，但不會引爆餘燼核（引爆規則單一入口只留給閃避，避免規則互相打架）。",
+      "visible_feedback": "第三段揮擊時出現橘紅扇形殘影與地面燒痕；燒痕只是視覺標記，不具備二次判定。",
+      "design_rationale": "20 點 = 16 點基礎值 + 25%；因為判定形狀從單體變成大範圍扇形，命中期望值會被攤薄到多個目標上，故只給finisher本身 25% 加成而非等比例大幅提升，避免與其他學派finisher強度脫節。"
+    },
+    {
+      "id": "twin-core-resonance",
+      "name": "雙核共振",
+      "school": "ember",
+      "keystone": false,
+      "changes_actions": ["q"],
+      "slot": null,
+      "requires": "ember-core",
+      "trigger": "閃避引爆一枚已武裝核心，且第二枚核心也已武裝",
+      "effect": {
+        "type": "chain-detonate-second-core",
+        "second_core_damage": 12,
+        "chain_probability_pct": 100,
+        "extended_attack_bonus_duration_s": 2.2,
+        "q_cooldown_s": 2
+      },
+      "decision_change": "場上可同時武裝的核心數量提高為 2；選取後 Q 冷卻大幅縮短（5→2 秒），讓雙核有機會在第一核被閃避引爆前就一起武裝完成；只要引爆時另一枚核心也已就緒，必定連鎖引爆並延長攻擊力加成時間，讓裂焰玩家開始規劃『雙核同時到位』的走位節奏。",
+      "visible_feedback": "兩枚已武裝核心之間浮現若隱若現的橘色引線，只有雙武裝時才會出現。",
+      "design_rationale": "second_core_damage 12 ≈ 主核心傷害(18)×0.67，刻意打折避免『雙核心連鎖』變成單一引爆點造成傷害線性疊加、支配其餘裂焰印記選擇。Gate 2 修訂（2026-07-30）：Balance 診斷出根因不是連鎖機率，而是『兩枚核心同時武裝』這個前置條件本身太窄——基礎 Q 冷卻 5 秒＋武裝延遲 2 秒疊加，第一枚核心幾乎總在第二枚武裝前就被閃避引爆（每局僅 ≈1.6 次前置條件成立，觸發率 0.63 次／局，遠低於 3 次／局的健康門檻）。因此本次改為：(1) chain_probability_pct 由 40→100（Balance 已驗證安全，其餘 Gate 2 指標無異常），移除『第二核連鎖』自身的額外不確定性；(2) 新增 q_cooldown_s=2（雙核共振專屬、覆蓋 ember-core 的 5 秒），讓兩枚核心的武裝時間差從 5 秒壓縮到 2 秒，大幅提高偵測到『閃避掃過時兩核都已就緒』的機率。兩者合併經 30,000 局同 seed 驗證觸發率與其餘門檻（見 sim/reports 與 design/spec.md 平衡章節）。"
+    },
+    {
+      "id": "ember-sacrifice",
+      "name": "餘燼獻祭",
+      "school": "ember",
+      "keystone": false,
+      "changes_actions": ["e"],
+      "slot": "e",
+      "requires": "ember-core",
+      "trigger": "施放 E",
+      "effect": {
+        "type": "detonate-all-armed-cores-no-dodge-required",
+        "e_cooldown_s": 16,
+        "base_e_cooldown_s": 12,
+        "grants_attack_bonus": false
+      },
+      "decision_change": "E 改為一鍵引爆場上所有已武裝餘燼核，不需要閃避時機；但冷卻由 12 秒拉長到 16 秒，且此路徑引爆不給予普攻加成，刻意與『閃避引爆』路線做取捨區隔。",
+      "visible_feedback": "施放 E 時所有已武裝核心同時爆閃，無需玩家位移配合。",
+      "design_rationale": "冷卻 +4 秒反映『跳過精準閃避時機需求換取穩定範圍傷害』的機會成本；不給攻擊加成是為了避免『閃避引爆』與『E 引爆』兩條觸發路徑重疊到讓其中一條失去存在意義。"
+    },
+    {
+      "id": "precision-afterimage",
+      "name": "精準殘影",
+      "school": "shadow",
+      "keystone": true,
+      "changes_actions": ["dodge", "e"],
+      "slot": "e",
+      "requires": null,
+      "trigger": "在敵方攻擊判定生效前 0.12 秒內完成閃避（精準閃避）",
+      "effect": {
+        "type": "precision-dodge-spawns-afterimage-charges-e",
+        "precision_window_s": 0.12,
+        "afterimage_duration_s": 1.6,
+        "max_charges": 2,
+        "e_cooldown_s": 4,
+        "base_e_cooldown_s": 12,
+        "e_teleport_damage": 14,
+        "e_teleport_radius_units": 1.5
+      },
+      "decision_change": "精準閃避時機比一般閃避窄很多；成功時原地留下 1.6 秒的殘影並為 E 充能一層（上限 2）。E 改為『殘影突襲』：瞬移至任一現存殘影位置並對周圍造成傷害，冷卻由 12 秒降到 4 秒，但沒有殘影充能時不可施放。",
+      "visible_feedback": "精準閃避觸發時角色留下半透明藍紫色殘影並有清脆音效（區別一般閃避的普通音效）；E 蓄能層數顯示在角色腳邊小圖示。",
+      "design_rationale": "精準窗口 0.12s 取自敵人平均攻擊主動判定時長(0.08–0.12s)，讓『精準』必須貼著攻擊生效前一刻完成，與守勢『任何成功閃避都算』的資源生成方式明確區隔；E 傷害14/冷卻4s僅在有充能時可用，實際頻率受精準閃避成功率節制（若精準成功率約50%，平均每8–10秒可用一次，與原12秒冷卻的期望輸出量級接近但更吃技巧）。"
+    },
+    {
+      "id": "pursuit-strike",
+      "name": "突進追擊",
+      "school": "shadow",
+      "keystone": false,
+      "changes_actions": ["attack"],
+      "slot": null,
+      "requires": null,
+      "trigger": "精準閃避後 1.0 秒內的下一次普攻第一段",
+      "effect": {
+        "type": "precision-window-first-hit-lunge",
+        "window_s": 1.0,
+        "lunge_distance_units": 2.5,
+        "damage": 13,
+        "base_first_hit_damage": 8
+      },
+      "decision_change": "精準閃避後的窗口內，普攻第一段自動附加突進距離並改為突刺判定（範圍變窄，傷害提高），獎勵『抓對精準閃避時機後立刻反擊』的節奏。",
+      "visible_feedback": "突進版第一段帶有藍紫色殘影拖尾與突刺特效，與一般第一段的橫斬明顯不同。",
+      "design_rationale": "13 點 = 8 點基礎值 + 5，額外 5 點視為『正確抓到精準閃避時機』的技巧獎勵；窗口僅 1.0 秒，避免變成常態化的固定輸出加成。"
+    },
+    {
+      "id": "phantom-reset",
+      "name": "虛影重置",
+      "school": "shadow",
+      "keystone": false,
+      "changes_actions": ["dodge"],
+      "slot": null,
+      "requires": null,
+      "trigger": "精準閃避成功",
+      "effect": {
+        "type": "precision-refunds-dodge-cooldown",
+        "normal_dodge_cooldown_s": 1.4,
+        "base_dodge_cooldown_s": 1.1,
+        "precision_dodge_cooldown_s": 0
+      },
+      "decision_change": "精準閃避成功時，閃避冷卻直接歸零、可連續使用；作為代價，一般（非精準）閃避的冷卻從 1.1 秒增加到 1.4 秒，逼玩家追求精準判定而非量產一般閃避無敵幀。",
+      "visible_feedback": "閃避圖示在精準觸發瞬間閃爍歸零，一般閃避圖示的冷卻讀條則變得略長。",
+      "design_rationale": "一般閃避冷卻 +0.3 秒作為機會成本；若無此代價，『精準重置』會讓閃避頻率無上限膨脹，破壞閃避動作原本的節奏張力。"
+    },
+    {
+      "id": "shadow-harvest",
+      "name": "暗影收割",
+      "school": "shadow",
+      "keystone": false,
+      "changes_actions": ["q"],
+      "slot": "q",
+      "requires": "precision-afterimage",
+      "trigger": "施放 Q",
+      "effect": {
+        "type": "detonate-all-afterimages-no-consume",
+        "q_cooldown_s": 3,
+        "damage_per_afterimage": 8,
+        "radius_units": 1.2,
+        "consumes_afterimages": false
+      },
+      "decision_change": "Q 改為『殘影集束』：對場上所有現存殘影同時觸發一次範圍爆裂，不消耗殘影本體（殘影仍會依原本存續時間自然消失），讓影步玩家在『E 瞬移突襲』與『Q 範圍點殺』間依現有殘影數量做選擇。",
+      "visible_feedback": "Q 施放時所有殘影同時泛起藍紫光爆。",
+      "design_rationale": "單一殘影 8 點傷害，同時存在的殘影數量受限於 1.6 秒存續時間與精準閃避頻率（設計上限約 2–3 個），整體輸出與 keystone 的 E 分頭發展，避免兩者互相蠶食。"
+    },
+    {
+      "id": "charged-retaliation",
+      "name": "蓄能反震",
+      "school": "guard",
+      "keystone": true,
+      "changes_actions": ["dodge", "e"],
+      "slot": "e",
+      "requires": null,
+      "trigger": "任一次成功閃避（一般或精準）",
+      "effect": {
+        "type": "dodge-builds-stacks-e-consumes-them",
+        "max_stacks": 3,
+        "stack_loss_on_hit": 1,
+        "dodge_trailing_parry_s": 0.15,
+        "base_dodge_trailing_parry_s": 0,
+        "e_cooldown_s": 8,
+        "base_e_cooldown_s": 12,
+        "damage_per_stack": 6
+      },
+      "decision_change": "每次成功閃避累積 1 層蓄能（上限 3），受擊未閃避成功則損失 1 層；閃避動作本身的判定時間軸也改變：位移無敵幀結束後多出 0.15 秒的短暫格擋尾段（原本閃避結束即可自由行動），這段格擋尾段本身就有機率把『本來會命中』的攻擊改判為格擋。E 改為『反震衝擊』：以自身為中心造成 6×當前層數的衝擊傷害並擊退，層數歸零，冷卻由 12 秒降到 8 秒。",
+      "visible_feedback": "角色周身依層數顯示 0–3 圈灰藍色護環；閃避尾段的格擋判定以護環短暫變亮表示；E 施放時護環同時爆發為衝擊波。",
+      "design_rationale": "6×層數（上限18）與裂焰引爆傷害(18)、影步 E 傷害(14) 對齊同一量級，避免守勢因為『需要蓄滿才有效益』而總期望輸出偏低；冷卻 8 秒因為此招需要蓄能前置成本，縮短冷卻讓『蓄能→爆發』循環頻率與其他兩派技能可用頻率相近。"
+    },
+    {
+      "id": "aftershock-shield",
+      "name": "餘波護盾",
+      "school": "guard",
+      "keystone": false,
+      "changes_actions": ["dodge"],
+      "slot": null,
+      "requires": "charged-retaliation",
+      "trigger": "蓄能層數為 3 層時遭遇原本會命中的攻擊",
+      "effect": {
+        "type": "full-stacks-convert-hit-to-block",
+        "required_stacks": 3,
+        "one_time_next_e_bonus_pct": 20
+      },
+      "decision_change": "蓄能滿 3 層時，閃避尾段的短暫格擋判定改為必定完全格擋（即使原本的閃避時機已經來不及也生效），格下後為下一次『反震衝擊』提供一次性 +20% 傷害加成。這枚印記的核心取捨是『屏住蓄能層數換取格擋保底』vs『立即施放 E 兌現 6×層數傷害』——兩者搶奪同一份層數資源是刻意設計的張力，不是缺陷（見 design_rationale 與 design/spec.md 平衡章節的 Studio Head 裁決）。",
+      "visible_feedback": "3 層蓄能滿時，護環外緣出現金色描邊；格擋成功瞬間有護盾閃光。",
+      "design_rationale": "+20% 一次性加成對齊裂焰雙核心連鎖傷害衰減(67%)的同量級數值但方向相反（守勢是上限加成而非衰減），避免無上限堆疊成長。Gate 2 修訂歷程（2026-07-30）：Balance Engineer 診斷本印記在原型模擬中觸發率過低（≈1.08 次／局），根因是『蓄能反震自己的 E 只要層數 >0 且冷卻好就會自動施放並清空層數，約 45% 的滿層視窗在被任何攻擊判定考驗前就先被 E 打掉』。Designer 一度據此重新設計為『E 施放後機率觸發部分格擋』，但 Studio Head 審閱後駁回：(1) 新設計讓 `changes_actions: ['dodge']` 變成假 metadata——實際觸發條件與效果都與閃避無關，只改了受擊後的傷害數值；(2) 新設計是機率×減傷的純數值印記，牴觸『沒有一枚是純數值印記』與 designer AGENT.md 的完成判準；(3) 兩個折扣數字（機率 25%、減傷 50%）是為了同時滿足『觸發率 ≥3』與『不擊穿勝率門檻』反推校準出來的指標驅動結果，不是設計驅動。Studio Head 判定真正的根因是**原型的自動施放 AI 缺乏『屏住層數』這個策略選項**（模型限制），不是印記設計本身自我衝突：真人玩家可以自主選擇『屏住 3 層換格擋保底』或『layer>0 就先花掉換傷害』，這正是這枚印記要創造的操作張力。因此本印記**還原為原始設計**（滿 3 層必定格擋），並在 `sim/report.ts`／`sim/prototype.test.ts` 明確登記為『已知限制：原型 AI 無法模擬人類的層數保留策略，實際效用待 Gate 3 真人試玩驗證』，而不是靠重新設計印記本身去湊出綠燈的 `gate2.markTriggerHealth`。"
+    },
+    {
+      "id": "mirror-plating",
+      "name": "鏡甲反傷",
+      "school": "guard",
+      "keystone": false,
+      "changes_actions": ["q"],
+      "slot": "q",
+      "requires": "charged-retaliation",
+      "trigger": "施放 Q",
+      "effect": {
+        "type": "brace-block-stance",
+        "stance_duration_s": 0.5,
+        "q_cooldown_s": 5,
+        "reflect_damage": 6,
+        "grants_stack": 1,
+        "movement_locked": true
+      },
+      "decision_change": "Q 改為『舉盾格擋』：短暫進入 0.5 秒完全格擋姿態（姿態中無法移動或攻擊），格下攻擊立即造成 1 層蓄能並反彈傷害給攻擊者，屬於防守保底手段而非輸出手段。",
+      "visible_feedback": "舉盾格擋時角色前方出現半透明護盾圖形，格下瞬間有反光閃爍。",
+      "design_rationale": "0.5 秒格擋姿態約等於敵人平均攻擊主動判定窗，方便玩家精準卡入預兆時間；反傷 6 點小於普攻最低段(8)，確保此招是『防守保底』而非取代普攻/E 的輸出手段。"
+    },
+    {
+      "id": "bulwark-chain",
+      "name": "鐵壁連動",
+      "school": "guard",
+      "keystone": false,
+      "changes_actions": ["attack"],
+      "slot": null,
+      "requires": "charged-retaliation",
+      "trigger": "蓄能層數 ≥ 2 層時執行普攻第一段",
+      "effect": {
+        "type": "stacked-first-hit-range-and-no-reset-chance",
+        "required_stacks": 2,
+        "range_bonus_pct": 30,
+        "secondary_splash_damage": 8,
+        "combo_no_reset_chance_pct": 15
+      },
+      "decision_change": "蓄能 ≥2 層時，普攻第一段判定範圍擴大 30%（更容易命中包圍的多個敵人），且有 15% 機率不消耗連段計時（連段不中斷），鼓勵守勢玩家在被包圍時仍敢於近身。",
+      "visible_feedback": "蓄能達標時第一段揮擊出現淡藍色範圍擴大殘影。",
+      "design_rationale": "15% 機率取自避免無限延長連段的上限考量；範圍 +30% 對齊近戰動作遊戲常見『群體修正』倍率區間(1.2–1.5x)的中位數。Gate 2 修訂（2026-07-30）：`sim/prototype.ts` 原本把 combo_no_reset_chance_pct 實作成『15% 機率造成 +8 額外傷害』，與這裡的文字描述（連段不重置＝操作節奏不中斷）矛盾——是內容正本與程式碼互相衝突的實作缺陷。已修正為：15% 機率時，這次攻擊的連擊效率固定取滿值（等同於『連段沒有被打斷，接住了完整連擊』），而不是額外加一筆固定傷害；因此移除原本沒有設計意義、只為了鏡射錯誤實作而存在的 no_reset_bonus_damage 欄位。"
+    }
+  ]
+}

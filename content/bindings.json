@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "version": 1,
+  "judgement_property": "code",
+  "actions": [
+    {
+      "id": "moveUp",
+      "label": "上移",
+      "category": "movement",
+      "default_codes": ["KeyW", "ArrowUp"],
+      "rebindable": true,
+      "secondary_fixed": "ArrowUp"
+    },
+    {
+      "id": "moveDown",
+      "label": "下移",
+      "category": "movement",
+      "default_codes": ["KeyS", "ArrowDown"],
+      "rebindable": true,
+      "secondary_fixed": "ArrowDown"
+    },
+    {
+      "id": "moveLeft",
+      "label": "左移",
+      "category": "movement",
+      "default_codes": ["KeyA", "ArrowLeft"],
+      "rebindable": true,
+      "secondary_fixed": "ArrowLeft"
+    },
+    {
+      "id": "moveRight",
+      "label": "右移",
+      "category": "movement",
+      "default_codes": ["KeyD", "ArrowRight"],
+      "rebindable": true,
+      "secondary_fixed": "ArrowRight"
+    },
+    {
+      "id": "attack",
+      "label": "攻擊",
+      "category": "combat",
+      "default_codes": ["Mouse0"],
+      "rebindable": true
+    },
+    {
+      "id": "dodge",
+      "label": "閃避",
+      "category": "combat",
+      "default_codes": ["Space"],
+      "rebindable": true
+    },
+    {
+      "id": "skillQ",
+      "label": "戰技一",
+      "category": "combat",
+      "default_codes": ["KeyQ"],
+      "rebindable": true
+    },
+    {
+      "id": "skillE",
+      "label": "戰技二",
+      "category": "combat",
+      "default_codes": ["KeyE"],
+      "rebindable": true
+    }
+  ],
+  "pointer_codes": ["Mouse0", "Mouse1", "Mouse2", "Mouse3", "Mouse4"],
+  "non_bindable_codes": [
+    "Escape",
+    "Tab",
+    "F5",
+    "ControlLeft",
+    "ControlRight",
+    "AltLeft",
+    "AltRight",
+    "MetaLeft",
+    "MetaRight",
+    "ShiftLeft",
+    "ShiftRight",
+    "OSLeft",
+    "OSRight"
+  ],
+  "conflict_policy": {
+    "on_conflict": "prompt",
+    "options": ["swap", "override", "cancel"],
+    "silent_rebind_allowed": false
+  },
+  "focus_and_storage": {
+    "clear_held_state_on": ["iframe_blur", "document_hidden", "pointercancel"],
+    "storage": "platform-sdk-versioned-settings",
+    "forbidden_storage": ["localStorage", "sessionStorage", "indexedDB"],
+    "invalid_or_missing_falls_back_to": "default_codes"
+  },
+  "design_rationale": "所有動作以 KeyboardEvent.code 判定；方向鍵固定作為移動的第二套備援(secondary_fixed)，不可被重綁移除，滿足『方向鍵固定備援』規格。non_bindable_codes 涵蓋 Escape/Tab/F5 與所有修飾鍵，避免重綁破壞瀏覽器或系統快捷鍵。conflict_policy 禁止靜默覆寫，衝突一律要求玩家明確選擇。"
+}

@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "tutorial_overhead_s": 260,
+  "draft_overhead_s": 25,
+  "boss_intro_outro_s": 45,
+  "encounter_transition_s": 35,
+  "zones": [
+    {
+      "id": "zone-1",
+      "name": "溶爐前庭",
+      "order": 1,
+      "encounters": [
+        {
+          "id": "z1-e1",
+          "enemies": [
+            {
+              "enemy_id": "ember-thrall",
+              "count": 1
+            }
+          ],
+          "target_duration_s": 30,
+          "note": "五分鐘教學中 0:40–1:40 的普攻教學戰；單一敵人、單一招式。"
+        },
+        {
+          "id": "z1-e2",
+          "enemies": [
+            {
+              "enemy_id": "ember-thrall",
+              "count": 2
+            },
+            {
+              "enemy_id": "shade-skirmisher",
+              "count": 1
+            }
+          ],
+          "target_duration_s": 55,
+          "note": "五分鐘教學中 4:10–5:00 的『小精英』戰，首次出現影刺客。"
+        }
+      ],
+      "zone_clear_heal_hp": 44
+    },
+    {
+      "id": "zone-2",
+      "name": "熾影迴廊",
+      "order": 2,
+      "encounters": [
+        {
+          "id": "z2-e1",
+          "enemies": [
+            {
+              "enemy_id": "shade-skirmisher",
+              "count": 2
+            }
+          ],
+          "target_duration_s": 50,
+          "note": "雙影刺客壓力戰，考驗閃避判斷頻率而非傷害輸出。"
+        },
+        {
+          "id": "z2-e2",
+          "enemies": [
+            {
+              "enemy_id": "bulwark-sentinel",
+              "count": 1
+            },
+            {
+              "enemy_id": "ember-thrall",
+              "count": 1
+            }
+          ],
+          "target_duration_s": 70,
+          "note": "首次出現甲衛，混合厚甲與雜兵。"
+        }
+      ],
+      "zone_clear_heal_hp": 44
+    },
+    {
+      "id": "zone-3",
+      "name": "決鬥場核心",
+      "order": 3,
+      "encounters": [
+        {
+          "id": "z3-e1",
+          "enemies": [
+            {
+              "enemy_id": "bulwark-sentinel",
+              "count": 1
+            },
+            {
+              "enemy_id": "shade-skirmisher",
+              "count": 1
+            }
+          ],
+          "target_duration_s": 75,
+          "note": "精英組合戰，甲衛拖住視線、影刺客伺機繞後。"
+        },
+        {
+          "id": "z3-e2",
+          "enemies": [
+            {
+              "enemy_id": "bulwark-sentinel",
+              "count": 1
+            },
+            {
+              "enemy_id": "ember-thrall",
+              "count": 1
+            },
+            {
+              "enemy_id": "shade-skirmisher",
+              "count": 1
+            }
+          ],
+          "target_duration_s": 95,
+          "note": "三種敵人齊聚的最終試煉戰，決鬥場核心的最後關卡。"
+        }
+      ],
+      "zone_clear_heal_hp": 33,
+      "boss_id": "ashen-warlord",
+      "boss_target_duration_s": 230
+    }
+  ],
+  "design_rationale": "target_duration_s 為設計估計值，實際單局時長以 sim/prototype.ts 的 timeStats 模擬輸出為準（見 design/spec.md 的平衡目標區間章節）；zone_clear_heal_hp 讓 HP 隨戰區推進部分回復但不全滿，維持『閃避表現仍決定生死』的張力，同時避免長 run 的傷害持續累積導致後段戰區必死。encounter_transition_s 為每場非 Boss 遭遇戰之間的走位／換場／拾取節奏估計值，供 sim/prototype.ts 的單局時長估算使用，Vertical Slice 階段才會有實際場景轉換演出。"
+}

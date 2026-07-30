@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "enemies": [
+    {
+      "id": "ember-thrall",
+      "name": "焰奴",
+      "role": "basic_melee",
+      "hp": 200,
+      "damage": 10,
+      "attack_interval_cycles": 2,
+      "telegraph_ms": 500,
+      "telegraph_tell": "頭頂浮現擴散的紅色蓄力光暈，光暈收縮到最小時垂直揮下重擊",
+      "move_speed_units_per_s": 2.5,
+      "dodge_difficulty_modifier": 0.05,
+      "armor_multiplier": 1.0,
+      "design_rationale": "作為五分鐘教學的第一個敵人，招式單一且預兆長(500ms)、攻擊間隔長(2 個連擊循環)，讓玩家在低壓力下學會『看光暈收縮到最小點閃避』。dodge_difficulty_modifier 為正值代表比基準更容易閃避成功。hp=200 經 sim/prototype.ts 反覆模擬校準：初版 hp=30 讓單一敵人在 1 個連擊循環內死亡、單局總時長遠低於 15–20 分鐘目標且勝率近 100%；逐步調高並同步調高玩家最大生命與戰區回復量後，10,000 局模擬得整體勝率 47.5%、單局時長中位數約 15.6 分鐘，落在目標區間（詳見 design/spec.md 平衡章節）。"
+    },
+    {
+      "id": "shade-skirmisher",
+      "name": "影刺客",
+      "role": "fast_flanker",
+      "hp": 145,
+      "damage": 8,
+      "attack_interval_cycles": 1,
+      "telegraph_ms": 350,
+      "telegraph_tell": "下蹲蓄勢並拖出一道短暫的暗色殘影軌跡，殘影收束的瞬間突進突刺",
+      "move_speed_units_per_s": 5.0,
+      "dodge_difficulty_modifier": -0.12,
+      "armor_multiplier": 1.0,
+      "design_rationale": "作為第一個『小精英』與後續繞後施壓的角色，血量相對最低（容易被優先擊殺）但攻擊間隔短、預兆時間短(350ms)，逼玩家提高閃避判斷頻率而非單純比拼傷害輸出。dodge_difficulty_modifier 為負值代表比基準更難閃避成功。hp=145 與焰奴(200)、甲衛(375)一併經 sim/prototype.ts 模擬校準，維持『血量最低但最難閃避』的相對定位。"
+    },
+    {
+      "id": "bulwark-sentinel",
+      "name": "甲衛",
+      "role": "armored_bruiser",
+      "hp": 375,
+      "damage": 16,
+      "attack_interval_cycles": 3,
+      "telegraph_ms": 800,
+      "telegraph_tell": "高舉武器並在地面投射一道白色扇形預警範圍，範圍持續擴大直到揮擊落下",
+      "move_speed_units_per_s": 1.8,
+      "dodge_difficulty_modifier": 0.08,
+      "armor_multiplier": 0.7,
+      "design_rationale": "厚甲(armor_multiplier=0.7，代表玩家對其傷害打七折)且移動慢、預兆最長(800ms)，讓玩家在血量、傷害輸出效率與閃避節奏之間做取捨——正面拖久了輸出效率低，但招式本身最容易閃避。hp=375 經 sim/prototype.ts 模擬校準，是三種敵人中血量最高者，對齊其『厚甲久戰』的設計定位。"
+    }
+  ],
+  "boss": {
+    "id": "ashen-warlord",
+    "name": "灰燼君主",
+    "hp": 2900,
+    "armor_multiplier": 1.0,
+    "telegraph_tell": "三種招式各自使用固定顏色的地面預警：紅圈＝重擊範圍傷害、藍線＝突進衝撞、綠符文＝召喚焰奴；同一顏色只對應同一招式，全程不變",
+    "phases": [
+      {
+        "id": "phase-1",
+        "hp_threshold": 1.0,
+        "attack_interval_cycles": 2,
+        "damage": 20,
+        "dodge_difficulty_modifier": 0,
+        "description": "開場階段：紅圈重擊與藍線突進交替出現，節奏與甲衛相近但傷害更高。"
+      },
+      {
+        "id": "phase-2",
+        "hp_threshold": 0.66,
+        "attack_interval_cycles": 2,
+        "damage": 22,
+        "dodge_difficulty_modifier": -0.03,
+        "description": "血量降至 66% 時加入綠符文召喚焰奴的威脅節奏，其餘招式難度小幅提高。"
+      },
+      {
+        "id": "phase-3",
+        "hp_threshold": 0.33,
+        "attack_interval_cycles": 1.5,
+        "damage": 24,
+        "dodge_difficulty_modifier": -0.1,
+        "description": "血量降至 33% 進入狂暴：攻擊間隔縮短為 1.5 個連擊循環，傷害與閃避難度同步提高，考驗玩家最終階段的資源（印記觸發、冷卻）管理。"
+      }
+    ],
+    "design_rationale": "三個閾值(100%/66%/33%)對應提案『每場戰鬥後三選一印記』建立的三次資源蓄積節點；狂暴階段的攻擊間隔從 2 個循環壓縮到 1.5 個循環(-25%)、dodge_difficulty_modifier 由 0 降到 -0.1，是與甲衛(+0.08)、影刺客(-0.12)兩個既有難度錨點內插得出，確保 Boss 讀性仍落在既有敵人建立的閃避難度區間內，不會突然出現全新的不可預期數值。hp=2900 經 sim/prototype.ts 模擬校準：需讓 Boss 戰在玩家已持有約 6 枚印記的火力下仍撐過三個階段轉換，同時把整局時長拉進 15–20 分鐘目標帶；10,000 局模擬下整體勝率 47.5%、單局時長中位數約 15.6 分鐘，詳細數據見 design/spec.md 平衡章節。"
+  }
+}
