@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "latency_target_ms": 40,
+  "buses": ["music", "effects", "ui"],
+  "cues": [
+    { "id": "enemy-telegraph-ember", "bus": "effects", "waveform": "sine", "frequency_hz": 150, "end_frequency_hz": 90, "duration_ms": 260, "rhythm_ms": [0, 140], "gain": 0.3 },
+    { "id": "enemy-telegraph-shade", "bus": "effects", "waveform": "sawtooth", "frequency_hz": 720, "end_frequency_hz": 280, "duration_ms": 100, "rhythm_ms": [0, 70, 140], "gain": 0.2 },
+    { "id": "enemy-attack-ember", "bus": "effects", "waveform": "square", "frequency_hz": 105, "end_frequency_hz": 65, "duration_ms": 150, "rhythm_ms": [0], "gain": 0.28 },
+    { "id": "enemy-attack-shade", "bus": "effects", "waveform": "sawtooth", "frequency_hz": 520, "end_frequency_hz": 150, "duration_ms": 80, "rhythm_ms": [0, 45], "gain": 0.2 },
+    { "id": "combo-hit-1", "bus": "effects", "waveform": "triangle", "frequency_hz": 190, "end_frequency_hz": 110, "duration_ms": 75, "rhythm_ms": [0], "gain": 0.2 },
+    { "id": "combo-hit-2", "bus": "effects", "waveform": "triangle", "frequency_hz": 240, "end_frequency_hz": 125, "duration_ms": 90, "rhythm_ms": [0], "gain": 0.23 },
+    { "id": "combo-hit-3", "bus": "effects", "waveform": "sawtooth", "frequency_hz": 310, "end_frequency_hz": 82, "duration_ms": 180, "rhythm_ms": [0, 65], "gain": 0.28 },
+    { "id": "combo-whiff", "bus": "effects", "waveform": "sine", "frequency_hz": 420, "end_frequency_hz": 180, "duration_ms": 65, "rhythm_ms": [0], "gain": 0.08 },
+    { "id": "dodge", "bus": "effects", "waveform": "triangle", "frequency_hz": 260, "end_frequency_hz": 620, "duration_ms": 100, "rhythm_ms": [0], "gain": 0.14 },
+    { "id": "dodge-precision", "bus": "effects", "waveform": "sine", "frequency_hz": 880, "end_frequency_hz": 1320, "duration_ms": 180, "rhythm_ms": [0, 55], "gain": 0.24 },
+    { "id": "core-armed", "bus": "effects", "waveform": "sine", "frequency_hz": 110, "end_frequency_hz": 440, "duration_ms": 260, "rhythm_ms": [0], "gain": 0.2 },
+    { "id": "core-detonated", "bus": "effects", "waveform": "square", "frequency_hz": 95, "end_frequency_hz": 45, "duration_ms": 300, "rhythm_ms": [0, 35], "gain": 0.3 },
+    { "id": "afterimage-spawned", "bus": "effects", "waveform": "sine", "frequency_hz": 960, "end_frequency_hz": 480, "duration_ms": 190, "rhythm_ms": [0], "gain": 0.16 },
+    { "id": "skill-q", "bus": "effects", "waveform": "sawtooth", "frequency_hz": 330, "end_frequency_hz": 550, "duration_ms": 160, "rhythm_ms": [0], "gain": 0.2 },
+    { "id": "skill-e", "bus": "effects", "waveform": "square", "frequency_hz": 165, "end_frequency_hz": 330, "duration_ms": 220, "rhythm_ms": [0, 85], "gain": 0.22 },
+    { "id": "skill-failed", "bus": "ui", "waveform": "square", "frequency_hz": 120, "end_frequency_hz": 100, "duration_ms": 75, "rhythm_ms": [0, 100], "gain": 0.12 },
+    { "id": "player-hit", "bus": "effects", "waveform": "sawtooth", "frequency_hz": 130, "end_frequency_hz": 55, "duration_ms": 210, "rhythm_ms": [0], "gain": 0.28 },
+    { "id": "player-blocked", "bus": "effects", "waveform": "square", "frequency_hz": 720, "end_frequency_hz": 360, "duration_ms": 140, "rhythm_ms": [0, 38, 76], "gain": 0.23 },
+    { "id": "enemy-defeated", "bus": "effects", "waveform": "triangle", "frequency_hz": 300, "end_frequency_hz": 90, "duration_ms": 230, "rhythm_ms": [0], "gain": 0.2 },
+    { "id": "encounter-cleared", "bus": "ui", "waveform": "sine", "frequency_hz": 392, "end_frequency_hz": 784, "duration_ms": 260, "rhythm_ms": [0, 120], "gain": 0.18 },
+    { "id": "draft-offered", "bus": "ui", "waveform": "sine", "frequency_hz": 330, "end_frequency_hz": 495, "duration_ms": 180, "rhythm_ms": [0, 90], "gain": 0.15 },
+    { "id": "mark-selected-ember", "bus": "ui", "waveform": "square", "frequency_hz": 130, "end_frequency_hz": 390, "duration_ms": 260, "rhythm_ms": [0, 70], "gain": 0.18 },
+    { "id": "mark-selected-shadow", "bus": "ui", "waveform": "sine", "frequency_hz": 740, "end_frequency_hz": 370, "duration_ms": 240, "rhythm_ms": [0, 45, 90], "gain": 0.16 },
+    { "id": "mark-selected-guard", "bus": "ui", "waveform": "triangle", "frequency_hz": 196, "end_frequency_hz": 196, "duration_ms": 300, "rhythm_ms": [0, 110], "gain": 0.18 },
+    { "id": "victory", "bus": "ui", "waveform": "sine", "frequency_hz": 392, "end_frequency_hz": 784, "duration_ms": 500, "rhythm_ms": [0, 130, 260], "gain": 0.2 },
+    { "id": "defeat", "bus": "ui", "waveform": "triangle", "frequency_hz": 220, "end_frequency_hz": 55, "duration_ms": 650, "rhythm_ms": [0], "gain": 0.2 }
+  ]
+}

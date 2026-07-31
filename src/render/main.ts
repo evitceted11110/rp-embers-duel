@@ -12,6 +12,7 @@
  * 這個檔案只負責「把它接上真正的瀏覽器」：canvas、DOM、sdk、輸入控制器、rAF。
  */
 import { connect } from '@rogue-paradise/platform-sdk'
+import { createAudioDirector, createWebAudioBackend, mountAudioControls } from '../audio/index.js'
 import {
   BINDINGS_CONFIG,
   createInputController,
@@ -97,6 +98,15 @@ const judgmentPaintTarget = toJudgmentPaintTarget(judgmentCtx)
 const sdk = await connect({ gameSlug: 'embers-duel' })
 const bindings = await loadBindings(sdk, BINDINGS_CONFIG)
 const inputController = createInputController({ bindings, contextMenuTarget: stage })
+const audioDirector = createAudioDirector(createWebAudioBackend)
+
+const unlockAudio = (): void => {
+  window.removeEventListener('pointerdown', unlockAudio)
+  window.removeEventListener('keydown', unlockAudio)
+  void audioDirector.unlock().catch((error: unknown) => console.error('音訊啟動失敗', error))
+}
+window.addEventListener('pointerdown', unlockAudio)
+window.addEventListener('keydown', unlockAudio)
 
 const hud = mountHud(stage, (markId) => inputController.submitDraftChoice(markId))
 
@@ -127,6 +137,7 @@ settingsContainer.style.padding = '8px'
 settingsContainer.style.borderRadius = '4px'
 settingsContainer.style.display = 'none'
 stage.appendChild(settingsContainer)
+mountAudioControls(settingsContainer, audioDirector)
 
 let rebindPanel: RebindPanelHandle | null = null
 settingsButton.addEventListener('click', () => {
@@ -143,6 +154,7 @@ settingsButton.addEventListener('click', () => {
 const loop: GameLoop = createGameLoop({
   seed: SEED,
   buildInput: () => inputController.buildTickInput(loop.getState().phase),
+  onStateAdvanced: (previous, next) => audioDirector.handleState(previous, next),
 })
 
 let lastRenderedTick: number | null = null
@@ -196,5 +208,6 @@ window.addEventListener('unhandledrejection', (event) => reportRuntimeCrash(even
 window.addEventListener('beforeunload', () => {
   rebindPanel?.dispose()
   inputController.dispose()
+  audioDirector.dispose()
   sdk.disconnect()
 })

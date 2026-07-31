@@ -27,6 +27,8 @@ export type CreateGameLoopOptions = {
   readonly seed: string
   /** 每個邏輯 tick 呼叫一次，組出這一 tick 要餵給 core 的輸入。 */
   buildInput(): TickInput
+  /** 音訊／遙測等唯讀消費者；每個 logical tick 呼叫，不能反向修改 core。 */
+  onStateAdvanced?(previous: GameState, next: GameState): void
 }
 
 export function createGameLoop(options: CreateGameLoopOptions): GameLoop {
@@ -37,6 +39,7 @@ export function createGameLoop(options: CreateGameLoopOptions): GameLoop {
     buildInput: options.buildInput,
     advance: (prevState: GameState, input: TickInput): GameState => {
       const nextState = recorder.tick(input)
+      options.onStateAdvanced?.(prevState, nextState)
       // events 只存在這一 tick（見 src/core/README.md 第 3 節），必須在這裡立刻消費，
       // 不能等到畫面幀結束——同一幀可能已經推進了不只一個邏輯 tick（見 fixed-step-loop.ts）。
       vfx = updateVfxState(vfx, prevState, nextState)
