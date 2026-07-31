@@ -21,6 +21,8 @@ export {
   createInputController,
   RESTART_CODE,
   type CreateInputControllerOptions,
+  type ContextMenuEvent,
+  type ContextMenuTarget,
   type InputController,
   type InputDocumentLike,
   type InputWindowLike,
@@ -33,8 +35,10 @@ export {
   deserializeBindings,
   loadBindings,
   saveBindings,
+  saveBindingsSafely,
   serializeBindings,
   type StoredBindings,
+  type SaveBindingsResult,
 } from './settings-storage.js'
 
 export { mountRebindPanel, type RebindPanelHandle } from './rebind-panel.js'

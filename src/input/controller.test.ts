@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { BINDINGS_CONFIG, defaultBindingsState } from './bindings.js'
 import {
   createInputController,
   RESTART_CODE,
+  type ContextMenuEvent,
   type InputDocumentLike,
   type InputWindowLike,
   type KeyCodeEvent,
@@ -24,6 +25,7 @@ class FakeWindow implements InputWindowLike {
   addEventListener(type: 'mouseup', listener: (event: MouseButtonEvent) => void): void
   addEventListener(type: 'blur', listener: () => void): void
   addEventListener(type: 'pointercancel', listener: () => void): void
+  addEventListener(type: 'contextmenu', listener: (event: ContextMenuEvent) => void): void
   addEventListener(type: string, listener: (event: never) => void): void {
     const set = this.listeners.get(type) ?? new Set()
     set.add(listener)
@@ -36,6 +38,7 @@ class FakeWindow implements InputWindowLike {
   removeEventListener(type: 'mouseup', listener: (event: MouseButtonEvent) => void): void
   removeEventListener(type: 'blur', listener: () => void): void
   removeEventListener(type: 'pointercancel', listener: () => void): void
+  removeEventListener(type: 'contextmenu', listener: (event: ContextMenuEvent) => void): void
   removeEventListener(type: string, listener: (event: never) => void): void {
     this.listeners.get(type)?.delete(listener)
   }
@@ -68,6 +71,10 @@ class FakeWindow implements InputWindowLike {
 
   dispatchPointerCancel(): void {
     this.emit('pointercancel', undefined)
+  }
+
+  dispatchContextMenu(event: ContextMenuEvent): void {
+    this.emit('contextmenu', event)
   }
 
   listenerCount(type: string): number {
@@ -207,11 +214,47 @@ describe('setBindings / getBindings：重綁後立即生效', () => {
   })
 })
 
+describe('Mouse2 綁定的戰場右鍵選單', () => {
+  it('Mouse2 綁定動作時，只在戰場範圍抑制 context menu', () => {
+    const window = new FakeWindow()
+    const document = new FakeDocument()
+    const battlefield = { contains: (target: unknown): boolean => target === 'battlefield' }
+    const bindings = { ...defaultBindingsState(BINDINGS_CONFIG), attack: 'Mouse2' }
+    const controller = createInputController({ bindings, window, document, contextMenuTarget: battlefield })
+    const inside = { target: 'battlefield', preventDefault: vi.fn() }
+    const outside = { target: 'settings', preventDefault: vi.fn() }
+
+    window.dispatchContextMenu(inside)
+    window.dispatchContextMenu(outside)
+
+    expect(inside.preventDefault).toHaveBeenCalledOnce()
+    expect(outside.preventDefault).not.toHaveBeenCalled()
+    controller.dispose()
+  })
+
+  it('沒有任何動作綁 Mouse2 時不抑制戰場 context menu', () => {
+    const { window, document } = setup()
+    const battlefield = { contains: (): boolean => true }
+    const controller = createInputController({
+      bindings: defaultBindingsState(BINDINGS_CONFIG),
+      window,
+      document,
+      contextMenuTarget: battlefield,
+    })
+    const event = { target: 'battlefield', preventDefault: vi.fn() }
+
+    window.dispatchContextMenu(event)
+
+    expect(event.preventDefault).not.toHaveBeenCalled()
+    controller.dispose()
+  })
+})
+
 describe('dispose：移除全部事件監聽器', () => {
   it('dispose 後 window/document 上不再殘留任何監聽器', () => {
     const { window, document, controller } = setup()
     controller.dispose()
-    for (const type of ['keydown', 'keyup', 'mousedown', 'mouseup', 'blur', 'pointercancel']) {
+    for (const type of ['keydown', 'keyup', 'mousedown', 'mouseup', 'blur', 'pointercancel', 'contextmenu']) {
       expect(window.listenerCount(type)).toBe(0)
     }
     expect(document.listenerCount()).toBe(0)

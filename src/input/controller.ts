@@ -14,6 +14,13 @@ import { assembleTickInput, computeActionStates } from './input-state.js'
 
 export type KeyCodeEvent = { readonly code: string }
 export type MouseButtonEvent = { readonly button: number }
+export type ContextMenuEvent = {
+  readonly target: unknown
+  preventDefault(): void
+}
+export type ContextMenuTarget = {
+  contains(target: unknown): boolean
+}
 
 export interface InputWindowLike {
   addEventListener(type: 'keydown', listener: (event: KeyCodeEvent) => void): void
@@ -22,12 +29,14 @@ export interface InputWindowLike {
   addEventListener(type: 'mouseup', listener: (event: MouseButtonEvent) => void): void
   addEventListener(type: 'blur', listener: () => void): void
   addEventListener(type: 'pointercancel', listener: () => void): void
+  addEventListener(type: 'contextmenu', listener: (event: ContextMenuEvent) => void): void
   removeEventListener(type: 'keydown', listener: (event: KeyCodeEvent) => void): void
   removeEventListener(type: 'keyup', listener: (event: KeyCodeEvent) => void): void
   removeEventListener(type: 'mousedown', listener: (event: MouseButtonEvent) => void): void
   removeEventListener(type: 'mouseup', listener: (event: MouseButtonEvent) => void): void
   removeEventListener(type: 'blur', listener: () => void): void
   removeEventListener(type: 'pointercancel', listener: () => void): void
+  removeEventListener(type: 'contextmenu', listener: (event: ContextMenuEvent) => void): void
 }
 
 export interface InputDocumentLike {
@@ -62,6 +71,7 @@ export type CreateInputControllerOptions = {
   config?: BindingsConfig
   window?: InputWindowLike
   document?: InputDocumentLike
+  contextMenuTarget?: ContextMenuTarget
 }
 
 export function createInputController(options: CreateInputControllerOptions): InputController {
@@ -95,6 +105,12 @@ export function createInputController(options: CreateInputControllerOptions): In
   const onVisibilityChange = (): void => {
     if (doc.hidden) clearHeldState()
   }
+  const onContextMenu = (event: ContextMenuEvent): void => {
+    const mouse2IsBound = Object.values(bindings).includes('Mouse2')
+    if (mouse2IsBound && options.contextMenuTarget?.contains(event.target)) {
+      event.preventDefault()
+    }
+  }
 
   win.addEventListener('keydown', onKeyDown)
   win.addEventListener('keyup', onKeyUp)
@@ -102,6 +118,7 @@ export function createInputController(options: CreateInputControllerOptions): In
   win.addEventListener('mouseup', onMouseUp)
   win.addEventListener('blur', clearHeldState)
   win.addEventListener('pointercancel', clearHeldState)
+  win.addEventListener('contextmenu', onContextMenu)
   doc.addEventListener('visibilitychange', onVisibilityChange)
 
   return {
@@ -128,6 +145,7 @@ export function createInputController(options: CreateInputControllerOptions): In
       win.removeEventListener('mouseup', onMouseUp)
       win.removeEventListener('blur', clearHeldState)
       win.removeEventListener('pointercancel', clearHeldState)
+      win.removeEventListener('contextmenu', onContextMenu)
       doc.removeEventListener('visibilitychange', onVisibilityChange)
     },
   }

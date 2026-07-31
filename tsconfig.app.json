@@ -10,6 +10,7 @@
     "src/visual/**/*.ts",
     "src/input/**/*.ts",
     "sim/**/*.ts",
+    "tools/**/*.ts",
     "vite.config.ts",
     "vitest.config.ts"
   ]

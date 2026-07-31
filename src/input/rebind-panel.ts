@@ -13,7 +13,7 @@
 import type { PlatformSdk } from '@rogue-paradise/platform-sdk'
 import { BINDINGS_CONFIG, proposeRebind, resolveConflict, type ActionId, type BindingsState } from './bindings.js'
 import type { InputController } from './controller.js'
-import { saveBindings } from './settings-storage.js'
+import { saveBindingsSafely } from './settings-storage.js'
 
 const ACTION_LABELS: Record<ActionId, string> = {
   moveUp: '上移',
@@ -60,10 +60,13 @@ export function mountRebindPanel(
     }
   }
 
-  function commit(bindings: BindingsState): void {
+  async function commit(bindings: BindingsState): Promise<void> {
     controller.setBindings(bindings)
-    void saveBindings(sdk, bindings)
     render()
+    const result = await saveBindingsSafely(sdk, bindings)
+    if (!result.ok) {
+      window.alert('鍵位已在本局套用，但無法保存；重新整理後會回復先前設定。')
+    }
   }
 
   function applyCapturedCode(actionId: ActionId, code: string): void {
@@ -80,7 +83,7 @@ export function mountRebindPanel(
     }
 
     if (outcome.status === 'applied') {
-      commit(outcome.bindings)
+      void commit(outcome.bindings)
       return
     }
 
@@ -92,7 +95,7 @@ export function mountRebindPanel(
       'cancel',
     )
     const resolution = choice === 'swap' || choice === 'override' ? choice : 'cancel'
-    commit(resolveConflict(controller.getBindings(), actionId, code, outcome.conflictingActionIds, resolution))
+    void commit(resolveConflict(controller.getBindings(), actionId, code, outcome.conflictingActionIds, resolution))
   }
 
   const onKeyDown = (event: KeyboardEvent): void => {

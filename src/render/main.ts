@@ -28,6 +28,8 @@ import { createGameLoop, type GameLoop } from './game-loop.js'
 import { mountHud } from './hud-dom.js'
 import { buildHudViewModel } from './hud-view.js'
 import { buildJudgmentEffects } from './judgment-view.js'
+import { shouldRenderTick } from './render-schedule.js'
+import { persistRuntimeCrash } from './runtime-safety.js'
 import { buildWorldCommands } from './world-view.js'
 
 /** Vertical Slice 固定種子——切片測試便利機制（KeyR 快速重開）見 `src/core/README.md`。 */
@@ -94,7 +96,7 @@ const judgmentPaintTarget = toJudgmentPaintTarget(judgmentCtx)
 
 const sdk = await connect({ gameSlug: 'embers-duel' })
 const bindings = await loadBindings(sdk, BINDINGS_CONFIG)
-const inputController = createInputController({ bindings })
+const inputController = createInputController({ bindings, contextMenuTarget: stage })
 
 const hud = mountHud(stage, (markId) => inputController.submitDraftChoice(markId))
 
@@ -143,8 +145,11 @@ const loop: GameLoop = createGameLoop({
   buildInput: () => inputController.buildTickInput(loop.getState().phase),
 })
 
+let lastRenderedTick: number | null = null
 function render(): void {
   const state = loop.getState()
+  if (!shouldRenderTick(lastRenderedTick, state.tick)) return
+  lastRenderedTick = state.tick
 
   clearWorldLayer(worldPaintTarget)
   paintWorldLayer(worldPaintTarget, buildWorldCommands(state))
@@ -156,19 +161,40 @@ function render(): void {
 }
 
 let previousTimestampMs: number | null = null
-function frame(nowMs: number): void {
-  if (previousTimestampMs !== null) {
-    const dtSeconds = (nowMs - previousTimestampMs) / 1000
-    loop.advanceBy(dtSeconds)
-  }
-  previousTimestampMs = nowMs
-  render()
-  requestAnimationFrame(frame)
+let runtimeFailed = false
+
+function reportRuntimeCrash(error: unknown): void {
+  if (runtimeFailed) return
+  runtimeFailed = true
+  void persistRuntimeCrash(sdk, loop.dump(), error)
 }
 
-render() // 首幀先畫一次，避免 rAF 觸發前畫面是空的。
-requestAnimationFrame(frame)
+function frame(nowMs: number): void {
+  try {
+    if (previousTimestampMs !== null) {
+      const dtSeconds = (nowMs - previousTimestampMs) / 1000
+      loop.advanceBy(dtSeconds)
+    }
+    previousTimestampMs = nowMs
+    render()
+    requestAnimationFrame(frame)
+  } catch (error) {
+    reportRuntimeCrash(error)
+  }
+}
+
+try {
+  render() // 首幀先畫一次，避免 rAF 觸發前畫面是空的。
+  requestAnimationFrame(frame)
+} catch (error) {
+  reportRuntimeCrash(error)
+}
+
+window.addEventListener('error', (event) => reportRuntimeCrash(event.error ?? event.message))
+window.addEventListener('unhandledrejection', (event) => reportRuntimeCrash(event.reason))
 
 window.addEventListener('beforeunload', () => {
+  rebindPanel?.dispose()
   inputController.dispose()
+  sdk.disconnect()
 })

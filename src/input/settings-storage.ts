@@ -69,3 +69,21 @@ export async function saveBindings(
 ): Promise<void> {
   await sdk.storage.set(BINDINGS_STORAGE_KEY, serializeBindings(bindings))
 }
+
+export type SaveBindingsResult = { readonly ok: true } | { readonly ok: false; readonly error: unknown }
+
+/**
+ * UI 邊界用的安全保存：瀏覽器不能讓拒絕的 Promise 漂成 unhandled rejection。
+ * 呼叫端仍取得原始錯誤，以便顯示可行動的提示。
+ */
+export async function saveBindingsSafely(
+  sdk: Pick<PlatformSdk, 'storage'>,
+  bindings: BindingsState,
+): Promise<SaveBindingsResult> {
+  try {
+    await saveBindings(sdk, bindings)
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, error }
+  }
+}

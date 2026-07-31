@@ -5,6 +5,7 @@ import {
   BINDINGS_STORAGE_KEY,
   deserializeBindings,
   loadBindings,
+  saveBindingsSafely,
   saveBindings,
   serializeBindings,
 } from './settings-storage.js'
@@ -31,6 +32,28 @@ describe('serializeBindings / deserializeBindings 往返', () => {
     const original = { ...defaultBindingsState(BINDINGS_CONFIG), skillQ: 'KeyF' }
     const restored = deserializeBindings(serializeBindings(original), BINDINGS_CONFIG)
     expect(restored).toEqual(original)
+  })
+})
+
+describe('saveBindingsSafely：保存失敗不形成未處理 rejection', () => {
+  it('sdk.storage.set 拒絕時回傳錯誤結果，交由 UI 顯示', async () => {
+    const error = new Error('quota exceeded')
+    const sdk = {
+      storage: {
+        async get(): Promise<null> {
+          return null
+        },
+        async set(): Promise<void> {
+          throw error
+        },
+        async remove(): Promise<void> {},
+      },
+    }
+
+    await expect(saveBindingsSafely(sdk, defaultBindingsState(BINDINGS_CONFIG))).resolves.toEqual({
+      ok: false,
+      error,
+    })
   })
 })
 
