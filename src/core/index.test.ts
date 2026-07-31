@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { createInitialState } from './index.js'
+import { createRun } from './index.js'
 
-describe('createInitialState', () => {
+describe('createRun', () => {
   it('建立可重播的初始狀態', () => {
-    expect(createInitialState('demo')).toEqual({ seed: 'demo', turn: 0 })
+    const state = createRun('demo')
+    expect(state.seed).toBe('demo')
+    expect(state.tick).toBe(0)
+    expect(state.phase).toBe('encounter1')
+    expect(state.selectedMark).toBeNull()
+    expect(state.player.hp).toBe(220)
+  })
+
+  it('空字串 seed 會丟例外', () => {
+    expect(() => createRun('')).toThrow()
   })
 })
