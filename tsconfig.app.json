@@ -8,6 +8,7 @@
   "include": [
     "src/render/**/*.ts",
     "src/visual/**/*.ts",
+    "src/input/**/*.ts",
     "sim/**/*.ts",
     "vite.config.ts",
     "vitest.config.ts"
