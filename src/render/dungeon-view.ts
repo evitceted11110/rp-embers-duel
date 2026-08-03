@@ -39,6 +39,20 @@ export type DungeonSceneDescription = {
   readonly nextDoorOpen: boolean
 }
 
+export type PrecisionSlowMotionVisualCue = {
+  readonly visible: boolean
+  readonly color: '#74d4cf'
+  readonly overlayAlpha: number
+}
+
+export function precisionSlowMotionVisualCue(active: boolean, progress: number): PrecisionSlowMotionVisualCue {
+  return {
+    visible: active,
+    color: '#74d4cf',
+    overlayAlpha: active ? 0.05 + Math.sin(Math.PI * Math.max(0, Math.min(1, progress))) * 0.09 : 0,
+  }
+}
+
 export function describeDungeonScene(phase: RunPhase, aliveEnemies: number, encounterIndex = 0): DungeonSceneDescription {
   if (phase === 'encounter1') return { room: 'forge-entry', roomName: '溶爐前庭・熄火前室', objective: `擊敗焰奴 ${aliveEnemies === 0 ? '1/1' : '0/1'}`, nextDoorOpen: aliveEnemies === 0 }
   if (phase === 'encounter2') return { room: 'forge-hall', roomName: '溶爐前庭・鑄火大廳', objective: `擊敗敵人 ${3 - aliveEnemies}/3`, nextDoorOpen: aliveEnemies === 0 }
@@ -565,7 +579,12 @@ function drawEquippedBuild(ctx: CanvasRenderingContext2D, state: GameState): voi
   }
 }
 
-export function paintDungeon(ctx: CanvasRenderingContext2D, state: GameState, vfx: VfxState): DungeonSceneDescription {
+export function paintDungeon(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  vfx: VfxState,
+  slowMotion: { readonly active: boolean; readonly progress: number } = { active: false, progress: 1 },
+): DungeonSceneDescription {
   const aliveEnemies = state.enemies.filter((enemy) => enemy.hp > 0).length
   const scene = describeDungeonScene(state.phase, aliveEnemies, state.encounterIndex)
   drawDungeonRoom(ctx, scene.room, state.tick, scene.nextDoorOpen)
@@ -619,6 +638,14 @@ export function paintDungeon(ctx: CanvasRenderingContext2D, state: GameState, vf
       ctx.fillRect(0, 0, 12, DUNGEON_HEIGHT)
       ctx.fillRect(DUNGEON_WIDTH - 12, 0, 12, DUNGEON_HEIGHT)
     }
+  }
+  const slowMotionCue = precisionSlowMotionVisualCue(slowMotion.active, slowMotion.progress)
+  if (slowMotionCue.visible) {
+    ctx.fillStyle = `rgba(116,212,207,${slowMotionCue.overlayAlpha})`
+    ctx.fillRect(0, 0, DUNGEON_WIDTH, DUNGEON_HEIGHT)
+    ctx.strokeStyle = slowMotionCue.color
+    ctx.lineWidth = 3
+    ctx.strokeRect(5, 5, DUNGEON_WIDTH - 10, DUNGEON_HEIGHT - 10)
   }
   return scene
 }

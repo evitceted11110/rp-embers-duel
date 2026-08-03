@@ -16,4 +16,19 @@ describe('createGameLoop 音訊掛點', () => {
     expect(onStateAdvanced).toHaveBeenCalledTimes(3)
     expect(onStateAdvanced.mock.calls.map(([, next]) => next.tick)).toEqual([1, 2, 3])
   })
+
+  it('唯讀 presentation observer 不改 fixed tick、輸入序列或 replay state', () => {
+    const observed = createGameLoop({
+      seed: 'presentation-observer',
+      buildInput: neutralInput,
+      onStateAdvanced: () => {},
+    })
+    const control = createGameLoop({ seed: 'presentation-observer', buildInput: neutralInput })
+
+    observed.advanceBy(TICK_SECONDS * 25 + Number.EPSILON)
+    control.advanceBy(TICK_SECONDS * 25 + Number.EPSILON)
+
+    expect(observed.getState()).toEqual(control.getState())
+    expect(observed.dump()).toEqual(control.dump())
+  })
 })

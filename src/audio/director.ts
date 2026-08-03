@@ -7,6 +7,7 @@ export type AudioBackend = {
   setMusicLayers(layers: MusicLayers): void
   setBusVolume(bus: AudioBus, volume: number): void
   setMuted(muted: boolean): void
+  setTimeScale(timeScale: number): void
   dispose(): void
 }
 
@@ -15,6 +16,7 @@ export type AudioDirector = {
   handleState(previous: GameState, next: GameState): void
   setBusVolume(bus: AudioBus, volume: number): void
   setMuted(muted: boolean): void
+  setTimeScale(timeScale: number): void
   dispose(): void
 }
 
@@ -22,6 +24,7 @@ export function createAudioDirector(createBackend: () => AudioBackend): AudioDir
   let backend: AudioBackend | null = null
   let latestMusic: MusicLayers = { base: 0, combat: 0, threat: 0 }
   let muted = false
+  let timeScale = 1
   const volumes: Record<AudioBus, number> = { music: 0.35, effects: 0.7, ui: 0.55 }
 
   return {
@@ -30,6 +33,7 @@ export function createAudioDirector(createBackend: () => AudioBackend): AudioDir
         backend = createBackend()
         for (const bus of ['music', 'effects', 'ui'] as const) backend.setBusVolume(bus, volumes[bus])
         backend.setMuted(muted)
+        backend.setTimeScale(timeScale)
       }
       await backend.resume()
       backend.setMusicLayers(latestMusic)
@@ -49,6 +53,10 @@ export function createAudioDirector(createBackend: () => AudioBackend): AudioDir
     setMuted(nextMuted: boolean): void {
       muted = nextMuted
       backend?.setMuted(muted)
+    },
+    setTimeScale(nextTimeScale: number): void {
+      timeScale = Math.min(1, Math.max(0.25, nextTimeScale))
+      backend?.setTimeScale(timeScale)
     },
     dispose(): void {
       backend?.dispose()

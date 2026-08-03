@@ -5,6 +5,8 @@ type MusicVoice = {
   readonly oscillator: OscillatorNode
   readonly pulseOscillator: OscillatorNode
   readonly gain: GainNode
+  readonly frequencyHz: number
+  readonly pulseHz: number
 }
 
 function createMusicVoice(
@@ -33,7 +35,7 @@ function createMusicVoice(
   gain.connect(destination)
   oscillator.start()
   pulseOscillator.start()
-  return { oscillator, pulseOscillator, gain }
+  return { oscillator, pulseOscillator, gain, frequencyHz, pulseHz }
 }
 
 export function createWebAudioBackend(): AudioBackend {
@@ -62,6 +64,7 @@ export function createWebAudioBackend(): AudioBackend {
     combat: createMusicVoice(context, buses.music, 110, 'sawtooth', 4),
     threat: createMusicVoice(context, buses.music, 220, 'square', 8),
   }
+  let timeScale = 1
 
   function ramp(parameter: AudioParam, value: number, seconds = 0.08): void {
     const now = context.currentTime
@@ -76,13 +79,13 @@ export function createWebAudioBackend(): AudioBackend {
     },
     play(cue: AudioCue): void {
       for (const offsetMs of cue.rhythmMs) {
-        const start = context.currentTime + offsetMs / 1000
-        const end = start + cue.durationMs / 1000
+        const start = context.currentTime + offsetMs / 1000 / timeScale
+        const end = start + cue.durationMs / 1000 / timeScale
         const oscillator = context.createOscillator()
         const gain = context.createGain()
         oscillator.type = cue.waveform
-        oscillator.frequency.setValueAtTime(cue.frequencyHz, start)
-        oscillator.frequency.exponentialRampToValueAtTime(Math.max(1, cue.endFrequencyHz), end)
+        oscillator.frequency.setValueAtTime(cue.frequencyHz * timeScale, start)
+        oscillator.frequency.exponentialRampToValueAtTime(Math.max(1, cue.endFrequencyHz * timeScale), end)
         gain.gain.setValueAtTime(0.0001, start)
         gain.gain.exponentialRampToValueAtTime(cue.gain, start + 0.008)
         gain.gain.exponentialRampToValueAtTime(0.0001, end)
@@ -102,6 +105,13 @@ export function createWebAudioBackend(): AudioBackend {
     },
     setMuted(muted: boolean): void {
       ramp(master.gain, muted ? 0 : 0.8, 0.04)
+    },
+    setTimeScale(nextTimeScale: number): void {
+      timeScale = nextTimeScale
+      for (const voice of Object.values(musicVoices)) {
+        ramp(voice.oscillator.frequency, voice.frequencyHz * timeScale, 0.025)
+        ramp(voice.pulseOscillator.frequency, voice.pulseHz * timeScale, 0.025)
+      }
     },
     dispose(): void {
       for (const voice of Object.values(musicVoices)) {

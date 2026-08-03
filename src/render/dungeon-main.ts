@@ -13,6 +13,10 @@ import { paintDungeon } from './dungeon-view.js'
 import { createGameLoop, type GameLoop } from './game-loop.js'
 import { buildHudViewModel } from './hud-view.js'
 import { persistRuntimeCrash } from './runtime-safety.js'
+import {
+  PRECISION_SLOW_MOTION_TIME_SCALE,
+  createPrecisionSlowMotion,
+} from './precision-slow-motion.js'
 import { impactVfxTier } from './vfx-tracker.js'
 
 const root = document.querySelector<HTMLElement>('#app')
@@ -75,6 +79,7 @@ const inputController = createInputController({
   },
 })
 const audioDirector = createAudioDirector(createWebAudioBackend)
+const precisionSlowMotion = createPrecisionSlowMotion()
 const hud = mountDungeonHud(stage, (mark) => inputController.submitDraftChoice(mark))
 
 const settingsButton = document.createElement('button')
@@ -117,10 +122,18 @@ const unlockAudio = (): void => {
 window.addEventListener('pointerdown', unlockAudio)
 window.addEventListener('keydown', unlockAudio)
 
+let currentFrameNowMs = 0
+let slowMotionAudioActive = false
 const loop: GameLoop = createGameLoop({
   seed: 'vertical-slice-rework-0.1.0',
   buildInput: () => inputController.buildTickInput(loop.getState().phase),
-  onStateAdvanced: (previous, next) => audioDirector.handleState(previous, next),
+  onStateAdvanced: (previous, next) => {
+    if (precisionSlowMotion.observe(next, currentFrameNowMs)) {
+      slowMotionAudioActive = true
+      audioDirector.setTimeScale(PRECISION_SLOW_MOTION_TIME_SCALE)
+    }
+    audioDirector.handleState(previous, next)
+  },
 })
 loopHolder.current = loop
 
@@ -140,10 +153,16 @@ function reportRuntimeCrash(error: unknown): void {
 
 function frame(nowMs: number): void {
   try {
+    currentFrameNowMs = nowMs
     if (previousTimestampMs !== null) loop.advanceBy((nowMs - previousTimestampMs) / 1000)
     previousTimestampMs = nowMs
     const state = loop.getState()
     const vfx = loop.getVfxState()
+    const slowMotion = precisionSlowMotion.sample(nowMs, state.tick)
+    if (!slowMotion.active && slowMotionAudioActive) {
+      slowMotionAudioActive = false
+      audioDirector.setTimeScale(1)
+    }
     if (state.phase !== previousPhase) {
       terminalPhaseStartedMs = state.phase === 'victory' || state.phase === 'defeat' ? nowMs : null
       previousPhase = state.phase
@@ -160,7 +179,10 @@ function frame(nowMs: number): void {
     canvas.style.transform = shaking ? `translate(${state.tick % 2 === 0 ? shakePixels : -shakePixels}px, ${state.tick % 3 === 0 ? shakePixels : -shakePixels}px)` : ''
     if (!visuallyFrozen) {
       ctx.clearRect(0, 0, DUNGEON_WIDTH, DUNGEON_HEIGHT)
-      paintDungeon(ctx, state, vfx)
+      const presentationState = slowMotion.active
+        ? { ...state, tick: slowMotion.presentationTick }
+        : state
+      paintDungeon(ctx, presentationState, vfx, slowMotion)
     }
     const endingVisible = terminalPhaseStartedMs === null || nowMs - terminalPhaseStartedMs >= (state.phase === 'victory' ? 2200 : 900)
     hud.update(buildHudViewModel(state, inputController.getBindings()), endingVisible)

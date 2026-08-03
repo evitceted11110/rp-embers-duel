@@ -9,6 +9,7 @@ function fakeBackend(): AudioBackend {
     setMusicLayers: vi.fn(),
     setBusVolume: vi.fn(),
     setMuted: vi.fn(),
+    setTimeScale: vi.fn(),
     dispose: vi.fn(),
   }
 }
@@ -63,5 +64,18 @@ describe('createAudioDirector', () => {
 
     expect(backend.play).toHaveBeenCalledWith(expect.objectContaining({ id: 'player-blocked', bus: 'effects' }))
     expect(backend.setMusicLayers).toHaveBeenCalled()
+  })
+
+  it('慢動作時間倍率直接同步到音訊 backend', async () => {
+    const backend = fakeBackend()
+    const director = createAudioDirector(() => backend)
+    await director.unlock()
+    vi.mocked(backend.setTimeScale).mockClear()
+
+    director.setTimeScale(0.45)
+    director.setTimeScale(1)
+
+    expect(backend.setTimeScale).toHaveBeenNthCalledWith(1, 0.45)
+    expect(backend.setTimeScale).toHaveBeenNthCalledWith(2, 1)
   })
 })
