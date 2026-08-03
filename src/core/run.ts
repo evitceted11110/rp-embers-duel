@@ -15,7 +15,7 @@ import { resolvePlayerTick } from './combat.js'
 import { PLAYER_MAX_HP } from './constants.js'
 import { ENCOUNTERS, MARKS, ZONE_CLEAR_HEALS, markDef } from './content.js'
 import { advanceEnemies } from './enemy.js'
-import { DEFAULT_FORGE } from './forge.js'
+import { DEFAULT_FORGE, applyForgeCard, forgeChoices } from './forge.js'
 import { advanceWaveTelegraph, announceNextWave, createEncounterDirector, hasRemainingWaves, isBossRoom, spawnOpeningWave } from './encounter-director.js'
 import {
   neutralInput,
@@ -81,12 +81,13 @@ export function createRun(seed: string): GameState {
   return {
     seed,
     tick: 0,
-    phase: 'encounter1',
-    encounterIndex: 0,
+    phase: 'draft',
+    encounterIndex: -1,
     selectedMark: null,
     selectedMarks: [],
     forge: DEFAULT_FORGE,
-    draftOptions: [],
+    draftOptions: ['ember-core', 'precision-afterimage', 'charged-retaliation'],
+    forgeOptions: forgeChoices(DEFAULT_FORGE).map((card) => card.id),
     player: initialPlayer(),
     enemies: opening.enemies,
     encounterDirector: opening.director,
@@ -115,6 +116,13 @@ export function tick(state: GameState, input: TickInput): GameState {
   }
 
   if (state.phase === 'draft') {
+    if (input.forgeChoice !== null && state.forgeOptions.includes(input.forgeChoice)) {
+      const forge = applyForgeCard(state.forge, input.forgeChoice)
+      const nextIndex = state.encounterIndex + 1
+      const director = createEncounterDirector(nextIndex)
+      const opening = spawnOpeningWave(director, state.seed, state.player.position)
+      return { ...state, tick: state.tick + 1, phase: isBossRoom(nextIndex) ? 'boss' : ENCOUNTER_PHASES[nextIndex]!, encounterIndex: nextIndex, forge, forgeOptions: [], draftOptions: [], enemies: opening.enemies, encounterDirector: opening.director, previousInput: input, events: [] }
+    }
     if (input.draftChoice === null) {
       return { ...state, tick: state.tick + 1, previousInput: input, events: [] }
     }
@@ -132,6 +140,7 @@ export function tick(state: GameState, input: TickInput): GameState {
       selectedMark: input.draftChoice,
       selectedMarks,
       draftOptions: [],
+      forgeOptions: [],
       enemies: opening.enemies,
       encounterDirector: opening.director,
       previousInput: input,
@@ -187,6 +196,7 @@ export function tick(state: GameState, input: TickInput): GameState {
       return {
         ...state, tick: state.tick + 1, phase: 'draft', player: enemyResult.player, enemies: enemyResult.enemies,
         draftOptions: draftOptions(state.seed, state.encounterIndex, state.selectedMarks), previousInput: input,
+        forgeOptions: forgeChoices(state.forge).map((card) => card.id),
         events: [...events, { type: 'bossCleared', room: 3 }, { type: 'draftOffered' }],
       }
     }
@@ -202,6 +212,7 @@ export function tick(state: GameState, input: TickInput): GameState {
       player: { ...enemyResult.player, hp: healedHp },
       enemies: enemyResult.enemies,
       draftOptions: draftOptions(state.seed, state.encounterIndex, state.selectedMarks),
+      forgeOptions: forgeChoices(state.forge).map((card) => card.id),
       previousInput: input,
       events: [...events, { type: 'encounterCleared', encounter: encounter.id }, { type: 'draftOffered' }],
     }

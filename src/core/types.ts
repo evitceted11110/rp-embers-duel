@@ -28,6 +28,8 @@ export type TickInput = {
    * 因為階段會在同一 tick 內離開 'draft'，不會有重複觸發的疑慮。
    */
   readonly draftChoice: MarkId | null
+  /** 三槽鍛造卡選擇；新 draft UI 使用，保留 draftChoice 供舊介面相容。 */
+  readonly forgeChoice: string | null
   /**
   * 快速重開：回到遭遇一開頭、清空完整已選 build。
    */
@@ -45,6 +47,7 @@ export function neutralInput(): TickInput {
     skillQ: false,
     skillE: false,
     draftChoice: null,
+    forgeChoice: null,
     restart: false,
   }
 }
@@ -250,6 +253,7 @@ export type GameState = {
   readonly selectedMarks: readonly MarkId[]
   readonly forge: ForgeLoadout
   readonly draftOptions: readonly MarkId[]
+  readonly forgeOptions: readonly string[]
   readonly player: PlayerState
   readonly enemies: readonly EnemyState[]
   readonly encounterDirector: EncounterDirectorState

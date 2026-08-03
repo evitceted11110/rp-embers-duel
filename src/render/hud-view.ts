@@ -123,7 +123,7 @@ export function buildHudViewModel(state: GameState, bindings?: BindingsState): H
       const card = draftCardContent(id)
       return { id, name: card.name, school: card.school }
     }),
-    draftNumber: Math.min(6, state.encounterIndex + 1),
+    draftNumber: Math.min(6, state.encounterIndex + 2),
     showDraft: state.phase === 'draft',
     draftCards: (state.draftOptions.length > 0 ? state.draftOptions : FIRST_DRAFT).map((id) => draftCardContent(id)),
     banner: banner(state),

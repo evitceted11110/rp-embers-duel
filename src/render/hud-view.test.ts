@@ -57,7 +57,7 @@ describe('buildHudViewModel：三選一與終局橫幅', () => {
     }))
     expect(vm.draftCards.map((card) => card.id)).toEqual(['phantom-reset', 'shadow-harvest', 'cracking-flame-combo'])
     expect(vm.selectedBuild.map((mark) => mark.id)).toEqual(['precision-afterimage', 'pursuit-strike'])
-    expect(vm.draftNumber).toBe(4)
+    expect(vm.draftNumber).toBe(5)
     expect(vm.roomName).toContain('鏡影祭壇')
   })
 
@@ -86,7 +86,7 @@ describe('rework 0.1.0 HUD：房間目標與動態 bindings', () => {
       attack: 'KeyJ', dodge: 'KeyK', skillQ: 'KeyU', skillE: 'KeyI',
     })
     expect(vm.actionSlots.map((slot) => slot.binding)).toEqual(['J', 'K', 'U', 'I'])
-    expect(vm.roomName).toBe('溶爐前庭・熄火前室')
-    expect(vm.objective).toContain('焰奴')
+    expect(vm.roomName).toBe('鑄火祭壇')
+    expect(vm.objective).toContain('第 0 次刻印')
   })
 })

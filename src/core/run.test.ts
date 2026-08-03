@@ -94,21 +94,21 @@ function autoplay(initial: GameState, maxTicks: number, draftChoice: MarkId): Ga
 }
 
 describe('run：兩段六關、第三與第六關 Boss 的波次遭遇', () => {
-  it('createRun 建立遭遇1、玩家滿血、尚未選印記', () => {
+  it('createRun 先進入開局鍛造、玩家滿血、尚未選印記', () => {
     const state = createRun('flow-seed')
-    expect(state.phase).toBe('encounter1')
+    expect(state.phase).toBe('draft')
     expect(state.selectedMark).toBeNull()
     expect(state.player.hp).toBe(220)
-    expect(state.enemies).toHaveLength(2) // z1-e1 第一波：焰奴×2；後續波次預告後進場
+    expect(state.forgeOptions).toHaveLength(3)
   })
 
   it('遭遇1清空後進入三選一（draft），畫面上只有三枚 keystone 可選', () => {
     const state = buildState({ phase: 'draft', enemies: [], draftOptions: ['ember-core', 'precision-afterimage', 'charged-retaliation'] })
     expect(state.phase).toBe('draft')
     const next = tick(state, input({ draftChoice: 'charged-retaliation' }))
-    expect(next.phase).toBe('encounter2')
+    expect(next.phase).toBe('encounter1')
     expect(next.selectedMark).toBe('charged-retaliation')
-    expect(next.enemies).toHaveLength(2) // 第一波：焰奴＋影刺客；下一波會預告後進場
+    expect(next.enemies).toHaveLength(2)
   })
 
   it('draft 階段暫停戰鬥計時：cooldown 等計時器不會在等待選擇時繼續推進', () => {
@@ -128,7 +128,7 @@ describe('run：兩段六關、第三與第六關 Boss 的波次遭遇', () => {
       const result = autoplay(createRun(`flow-${choice}`), 120000, choice)
       expect(result.phase, `index=${result.encounterIndex} hp=${result.player.hp} player=(${result.player.position.x.toFixed(2)},${result.player.position.y.toFixed(2)}) enemies=${result.enemies.map((enemy) => `${enemy.id}:${enemy.hp.toFixed(1)}@${enemy.position.x.toFixed(2)},${enemy.position.y.toFixed(2)}`).join('|')} marks=${result.selectedMarks.join(',')}`).toBe('victory')
       expect(result.selectedMarks).toContain(choice)
-      expect(result.selectedMarks).toHaveLength(5)
+      expect(result.selectedMarks).toHaveLength(6)
       expect(result.encounterIndex).toBe(5)
       expect(result.enemies.every((enemy) => enemy.hp <= 0)).toBe(true)
       expect(result.player.hp).toBeGreaterThan(0)
@@ -164,14 +164,14 @@ describe('run：兩段六關、第三與第六關 Boss 的波次遭遇', () => {
   it('快速重開（restart）：不論目前在哪個階段，都會回到全新的遭遇1、清空已選印記', () => {
     const midDraft = buildState({ phase: 'draft', selectedMark: null, enemies: [] })
     const restarted1 = tick(midDraft, input({ restart: true }))
-    expect(restarted1.phase).toBe('encounter1')
+    expect(restarted1.phase).toBe('draft')
     expect(restarted1.selectedMark).toBeNull()
     expect(restarted1.player.hp).toBe(220)
     expect(restarted1.seed).toBe(midDraft.seed)
 
     const midEncounter2 = buildState({ phase: 'encounter2', selectedMark: 'ember-core' })
     const restarted2 = tick(midEncounter2, input({ restart: true }))
-    expect(restarted2.phase).toBe('encounter1')
+    expect(restarted2.phase).toBe('draft')
     expect(restarted2.selectedMark).toBeNull()
   })
 })

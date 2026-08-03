@@ -3,6 +3,8 @@
   "latency_target_ms": 40,
   "buses": ["music", "effects", "ui"],
   "cues": [
+    { "id": "wave-telegraph", "bus": "ui", "waveform": "sine", "frequency_hz": 240, "end_frequency_hz": 360, "duration_ms": 220, "rhythm_ms": [0, 90], "gain": 0.16 },
+    { "id": "wave-spawn", "bus": "effects", "waveform": "triangle", "frequency_hz": 110, "end_frequency_hz": 180, "duration_ms": 180, "rhythm_ms": [0], "gain": 0.18 },
     { "id": "enemy-telegraph-ember", "bus": "effects", "waveform": "sine", "frequency_hz": 150, "end_frequency_hz": 90, "duration_ms": 260, "rhythm_ms": [0, 140], "gain": 0.3 },
     { "id": "enemy-telegraph-shade", "bus": "effects", "waveform": "sawtooth", "frequency_hz": 720, "end_frequency_hz": 280, "duration_ms": 100, "rhythm_ms": [0, 70, 140], "gain": 0.2 },
     { "id": "enemy-attack-ember", "bus": "effects", "waveform": "square", "frequency_hz": 105, "end_frequency_hz": 65, "duration_ms": 150, "rhythm_ms": [0], "gain": 0.28 },

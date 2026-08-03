@@ -11,7 +11,8 @@ function clearActiveWave() {
 
 describe('遭遇導演：可重播分波、出生預告與安全環', () => {
   it('普通房至少拆成兩波，第一波清除後先預告、再實體化下一波', () => {
-    const initial = createRun('wave-split')
+    const base = createRun('wave-split')
+    const initial = { ...base, phase: 'encounter1' as const }
     expect(initial.encounterDirector.waves.length).toBeGreaterThanOrEqual(2)
     expect(initial.enemies.length).toBeGreaterThan(0)
     expect(initial.enemies.length).toBeLessThanOrEqual(8)

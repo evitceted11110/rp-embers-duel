@@ -114,9 +114,9 @@ function eventCue(event: GameEvent, state: GameState): string {
     case 'bossSummoned':
       return 'boss-summon-resolve'
     case 'waveTelegraphed':
-      return 'enemy-defeated'
+      return 'wave-telegraph'
     case 'waveSpawned':
-      return 'enemy-defeated'
+      return 'wave-spawn'
     case 'bossCleared':
       return 'encounter-cleared'
   }

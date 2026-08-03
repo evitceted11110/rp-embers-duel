@@ -70,6 +70,7 @@ export function assembleTickInput(
     skillQ: actionStates.skillQ,
     skillE: actionStates.skillE,
     draftChoice: phase === 'draft' ? pendingDraftChoice : null,
+    forgeChoice: null,
     restart: restartHeld,
   }
 }

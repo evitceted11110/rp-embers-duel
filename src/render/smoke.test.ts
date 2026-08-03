@@ -128,7 +128,7 @@ describe('煙霧測試：輸入序列推進完整六遭遇、六次 draft 與 Bo
       })
 
       const initialState = loop.getState()
-      expect(initialState.phase).toBe('encounter1')
+      expect(initialState.phase).toBe('draft')
       expect(initialState.player.position).toEqual({ x: 0, y: 0 })
 
       let frames = 0
@@ -151,7 +151,7 @@ describe('煙霧測試：輸入序列推進完整六遭遇、六次 draft 與 Bo
       const finalState = loop.getState()
       expect(finalState.phase).toBe('victory')
       expect(finalState.selectedMarks).toContain(draftChoice)
-      expect(finalState.selectedMarks).toHaveLength(5)
+      expect(finalState.selectedMarks).toHaveLength(6)
       expect(finalState.enemies.every((e) => e.hp <= 0)).toBe(true)
       expect(finalState.player.hp).toBeGreaterThan(0)
       // 玩家確實移動過（不是原地不動、輸入沒有真的傳到 core）。
@@ -169,7 +169,7 @@ describe('煙霧測試：輸入序列推進完整六遭遇、六次 draft 與 Bo
       const restartLoop = createGameLoop({ seed: `smoke-restart-${draftChoice}`, buildInput: restartInput })
       restartLoop.advanceBy(FRAME_DT_SECONDS * 2)
       const restarted = restartLoop.getState()
-      expect(restarted.phase).toBe('encounter1')
+      expect(restarted.phase).toBe('draft')
       expect(restarted.selectedMark).toBeNull()
       expect(restartLoop.getVfxState()).toEqual({ dodgeTrail: null, teleportStreak: null })
 

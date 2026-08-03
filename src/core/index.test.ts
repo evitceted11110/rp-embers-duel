@@ -6,7 +6,7 @@ describe('createRun', () => {
     const state = createRun('demo')
     expect(state.seed).toBe('demo')
     expect(state.tick).toBe(0)
-    expect(state.phase).toBe('encounter1')
+    expect(state.phase).toBe('draft')
     expect(state.selectedMark).toBeNull()
     expect(state.player.hp).toBe(220)
   })

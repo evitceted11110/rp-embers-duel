@@ -235,6 +235,15 @@ function drawTelegraph(ctx: CanvasRenderingContext2D, enemy: EnemyState, tick: n
   }
 }
 
+function drawSpawnTelegraphs(ctx: CanvasRenderingContext2D, state: GameState): void {
+  const pulse = 0.55 + (state.tick % 14) / 32
+  for (const telegraph of state.encounterDirector.telegraphs) {
+    const point = worldToDungeon(telegraph.position)
+    ring(ctx, PIXEL_PALETTE.ember, point.x, point.y, 13 * pulse, 2)
+    rectSpark(ctx, PIXEL_PALETTE.flame, point.x, point.y, 5)
+  }
+}
+
 function drawEnemyMotion(ctx: CanvasRenderingContext2D, enemy: EnemyState, tick: number): void {
   const speed = Math.hypot(enemy.velocity.x, enemy.velocity.y)
   if (speed <= 0.05) return
@@ -589,6 +598,7 @@ export function paintDungeon(
   const scene = describeDungeonScene(state.phase, aliveEnemies, state.encounterIndex)
   drawDungeonRoom(ctx, scene.room, state.tick, scene.nextDoorOpen)
 
+  drawSpawnTelegraphs(ctx, state)
   for (const enemy of state.enemies) drawTelegraph(ctx, enemy, state.tick)
   drawAttackWindow(ctx, state)
   drawAfterimages(ctx, state)
