@@ -100,6 +100,19 @@ function allDefeated(enemies: readonly EnemyState[]): boolean {
   return enemies.length > 0 && enemies.every((enemy) => enemy.hp <= 0)
 }
 
+/** 將三槽鍛造映射到既有、已驗證的動作幾何；舊印記不再由 draft 直接授予。 */
+function forgeMarks(forge: GameState['forge']): readonly import('./types.js').MarkId[] {
+  const marks: import('./types.js').MarkId[] = []
+  if (forge.attack.core === 'spinning-ember') marks.push('cracking-flame-combo')
+  if (forge.attack.extensions.includes('double-reversal')) marks.push('bulwark-chain')
+  if (forge.q.core === 'ember-core-forge') marks.push('ember-core')
+  if (forge.q.extensions.includes('dual-core')) marks.push('twin-core-resonance')
+  if (forge.q.extensions.includes('resonance')) marks.push('ember-sacrifice')
+  if (forge.e.core === 'mirror-stance') marks.push('mirror-plating', 'charged-retaliation')
+  if (forge.e.extensions.includes('stored-shock')) marks.push('aftershock-shield')
+  return marks
+}
+
 /**
  * 唯一的邏輯推進入口。`state` 與回傳值都是完全序列化友善的純資料——沒有任何
  * mutable 的 Rng 或 closure 藏在裡面，因此可以直接拿兩次獨立呼叫的結果做
@@ -158,17 +171,19 @@ export function tick(state: GameState, input: TickInput): GameState {
   // 一般遭遇或 Boss：先解算玩家主動行動，再解算敵人時序，
   // 確保「這一 tick 剛觸發的閃避無敵幀」在同一 tick 內就能保護玩家（見 combat.ts
   // 與 enemy.ts 模組頂端註解的處理順序說明）。
+  const forgeIsDefault = state.forge.attack.core === 'mercenary-blade' && state.forge.q.core === 'cinder-dash' && state.forge.e.core === 'breakline-shock' && state.forge.attack.extensions.length === 0 && state.forge.q.extensions.length === 0 && state.forge.e.extensions.length === 0
+  const activeMarks = forgeIsDefault ? (state.selectedMarks.length > 0 ? state.selectedMarks : state.selectedMark === null ? [] : [state.selectedMark]) : forgeMarks(state.forge)
   const playerResult = resolvePlayerTick(
     state.player,
     state.enemies,
     input,
     state.previousInput,
-    state.selectedMarks.length > 0 ? state.selectedMarks : state.selectedMark === null ? [] : [state.selectedMark],
+    activeMarks,
   )
   const enemyResult = advanceEnemies(
     playerResult.enemies,
     playerResult.player,
-    state.selectedMarks.length > 0 ? state.selectedMarks : state.selectedMark === null ? [] : [state.selectedMark],
+    activeMarks,
   )
   const events: GameEvent[] = [...playerResult.events, ...enemyResult.events]
 

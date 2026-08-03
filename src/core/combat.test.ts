@@ -253,9 +253,9 @@ describe('普攻三段連擊（三枚 keystone 均未改寫，行為與流派無
     })
     const result = tick({ ...base, player: { ...base.player, combo: { hitIndex: 3, phase: 'startup', phaseTicksRemaining: 0 } } }, input({ attack: true }))
     const event = result.events.find((candidate) => candidate.type === 'comboHit')
-    expect(event).toMatchObject({ geometry: { variant: 'cracking-flame', range: 2.2, halfAngle: Math.PI / 3 } })
+    expect(event).toMatchObject({ geometry: { variant: 'cracking-flame', range: 2.2, halfAngle: Math.PI } })
     if (event?.type === 'comboHit') expect(result.player.combo.attackGeometry).toBe(event.geometry)
-    expect(result.enemies.find((enemy) => enemy.id === 'behind')!.hp).toBe(194)
+    expect(result.enemies.find((enemy) => enemy.id === 'behind')!.hp).toBe(180)
   })
 
   it('瞄準向量為零時維持既有 facing，確保游標未進入舞台仍可用鍵盤攻擊', () => {

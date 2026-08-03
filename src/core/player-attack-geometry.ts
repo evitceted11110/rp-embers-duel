@@ -64,7 +64,8 @@ export function createPlayerAttackGeometry(input: CreatePlayerAttackGeometryInpu
     : pursuit
       ? markEffectNumber('pursuit-strike', 'lunge_distance_units')
       : ATTACK_RANGES_UNITS[input.hitIndex - 1]! * (bulwark ? 1 + markEffectNumber('bulwark-chain', 'range_bonus_pct') / 100 : 1)
-  const halfAngle = cracking ? Math.PI / 3 : pursuit ? 0.2 : ATTACK_HALF_ANGLES_RAD[input.hitIndex - 1]!
+  // 旋燼劍式：第三段由前方重擊改為完整 360° 迴旋斬，判定與預覽共用同一幾何。
+  const halfAngle = cracking ? Math.PI : pursuit ? 0.2 : ATTACK_HALF_ANGLES_RAD[input.hitIndex - 1]!
 
   return {
     origin,

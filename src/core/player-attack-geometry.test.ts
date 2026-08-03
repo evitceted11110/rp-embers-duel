@@ -35,7 +35,7 @@ describe('玩家普攻幾何單一真相來源', () => {
 
   it('base、裂焰、追擊、鐵壁改寫都由同一 helper 產生', () => {
     expect(geometry(2)).toMatchObject({ hitIndex: 2, variant: 'base', range: 1.45 })
-    expect(geometry(3, ['cracking-flame-combo'])).toMatchObject({ variant: 'cracking-flame', range: 2.2, halfAngle: Math.PI / 3 })
+    expect(geometry(3, ['cracking-flame-combo'])).toMatchObject({ variant: 'cracking-flame', range: 2.2, halfAngle: Math.PI })
     expect(createPlayerAttackGeometry({ position: { x: 0, y: 0 }, facing: RIGHT, hitIndex: 1, selectedMarks: ['pursuit-strike'], pursuitActive: true, guardStacks: 0 })).toMatchObject({ variant: 'pursuit', range: 2.5 })
     expect(createPlayerAttackGeometry({ position: { x: 0, y: 0 }, facing: RIGHT, hitIndex: 1, selectedMarks: ['bulwark-chain'], pursuitActive: false, guardStacks: 2 })).toMatchObject({ variant: 'bulwark', range: 1.3 * 1.3 })
   })
