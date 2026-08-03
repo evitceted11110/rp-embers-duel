@@ -35,6 +35,7 @@ export {
 } from './constants.js'
 export { EMBER_CORE, PRECISION_AFTERIMAGE } from './content.js'
 export { createEnemyAttackGeometry, enemyGeometryContains } from './enemy-geometry.js'
+export { MAX_SIMULTANEOUS_ENEMIES, WAVE_TELEGRAPH_TICKS } from './encounter-director.js'
 export {
   circleIntersectsSector,
   createPlayerAttackGeometry,
@@ -54,12 +55,14 @@ export type {
   EnemyKind,
   EnemyLocomotion,
   EnemyState,
+  EncounterDirectorState,
   GameEvent,
   GameState,
   MarkId,
   PlayerState,
   RunPhase,
   TickInput,
+  SpawnTelegraph,
 } from './types.js'
 
 export type { Vector2 } from './vector.js'

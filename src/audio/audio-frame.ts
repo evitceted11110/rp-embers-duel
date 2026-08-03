@@ -113,6 +113,12 @@ function eventCue(event: GameEvent, state: GameState): string {
       return `boss-phase-${event.phase}`
     case 'bossSummoned':
       return 'boss-summon-resolve'
+    case 'waveTelegraphed':
+      return 'enemy-defeated'
+    case 'waveSpawned':
+      return 'enemy-defeated'
+    case 'bossCleared':
+      return 'encounter-cleared'
   }
 }
 

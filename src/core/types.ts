@@ -175,6 +175,26 @@ export type EnemyState = {
   readonly bossAttack?: BossAttackPattern | null
 }
 
+/**
+ * 遭遇導演的純資料快照。預告座標在波次被排入時就烘焙，重播時不需要重新擲亂數，
+ * 渲染層可直接以此畫出邊緣裂隙／出生輪廓。
+ */
+export type SpawnTelegraph = {
+  readonly kind: EnemyKind
+  readonly position: Vector2
+}
+
+export type EncounterDirectorState = {
+  readonly roomIndex: number
+  readonly boss: boolean
+  /** 已經實體化的波次；-1 代表開場預告尚未落地。 */
+  readonly activeWaveIndex: number
+  readonly waves: readonly (readonly EnemyKind[])[]
+  /** 大於零時為出生預告倒數；零時由 run 在下一個 tick 實體化。 */
+  readonly telegraphTicksRemaining: number
+  readonly telegraphs: readonly SpawnTelegraph[]
+}
+
 // ---------------------------------------------------------------------------
 // 事件：這一 tick 發生的、值得渲染層／音訊層反應的離散事實。
 // 每 tick 重新產生、不累積，保持 GameState 的大小與決定性可預期。
@@ -200,6 +220,9 @@ export type GameEvent =
   | { readonly type: 'defeat' }
   | { readonly type: 'bossPhaseChanged'; readonly phase: 2 | 3 }
   | { readonly type: 'bossSummoned'; readonly count: number }
+  | { readonly type: 'waveTelegraphed'; readonly wave: number; readonly totalWaves: number; readonly count: number }
+  | { readonly type: 'waveSpawned'; readonly wave: number; readonly totalWaves: number; readonly count: number }
+  | { readonly type: 'bossCleared'; readonly room: 3 | 6 }
 
 // ---------------------------------------------------------------------------
 // 頂層執行狀態
@@ -213,13 +236,14 @@ export type GameState = {
   readonly seed: string
   readonly tick: number
   readonly phase: RunPhase
-  /** 0..5 為非 Boss 遭遇索引；Boss 時為 6。 */
+  /** 0..5 為六關索引；第 3、6 關是 Boss。 */
   readonly encounterIndex: number
   readonly selectedMark: MarkId | null
   readonly selectedMarks: readonly MarkId[]
   readonly draftOptions: readonly MarkId[]
   readonly player: PlayerState
   readonly enemies: readonly EnemyState[]
+  readonly encounterDirector: EncounterDirectorState
   readonly previousInput: TickInput
   readonly events: readonly GameEvent[]
 }

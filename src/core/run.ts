@@ -14,7 +14,8 @@ import { createRng } from '@rogue-paradise/rng'
 import { resolvePlayerTick } from './combat.js'
 import { PLAYER_MAX_HP } from './constants.js'
 import { ENCOUNTERS, MARKS, ZONE_CLEAR_HEALS, markDef } from './content.js'
-import { advanceEnemies, spawnBoss, spawnEncounter } from './enemy.js'
+import { advanceEnemies } from './enemy.js'
+import { advanceWaveTelegraph, announceNextWave, createEncounterDirector, hasRemainingWaves, isBossRoom, spawnOpeningWave } from './encounter-director.js'
 import {
   neutralInput,
   type EncounterPhase,
@@ -74,7 +75,8 @@ function draftOptions(seed: string, draftIndex: number, selected: readonly impor
  */
 export function createRun(seed: string): GameState {
   if (seed.length === 0) throw new Error('seed 不得為空字串')
-  const rng = createRng(seed)
+  const director = createEncounterDirector(0)
+  const opening = spawnOpeningWave(director, seed, ZERO_VECTOR)
   return {
     seed,
     tick: 0,
@@ -84,7 +86,8 @@ export function createRun(seed: string): GameState {
     selectedMarks: [],
     draftOptions: [],
     player: initialPlayer(),
-    enemies: spawnEncounter(0, rng.fork('encounter-0')),
+    enemies: opening.enemies,
+    encounterDirector: opening.director,
     previousInput: neutralInput(),
     events: [],
   }
@@ -114,10 +117,11 @@ export function tick(state: GameState, input: TickInput): GameState {
       return { ...state, tick: state.tick + 1, previousInput: input, events: [] }
     }
     if (!state.draftOptions.includes(input.draftChoice)) return { ...state, tick: state.tick + 1, previousInput: input, events: [] }
-    const rng = createRng(state.seed)
     const selectedMarks = [...state.selectedMarks, input.draftChoice]
     const nextIndex = state.encounterIndex + 1
-    const enteringBoss = nextIndex >= ENCOUNTERS.length
+    const enteringBoss = isBossRoom(nextIndex)
+    const director = createEncounterDirector(nextIndex)
+    const opening = spawnOpeningWave(director, state.seed, state.player.position)
     return {
       ...state,
       tick: state.tick + 1,
@@ -126,10 +130,18 @@ export function tick(state: GameState, input: TickInput): GameState {
       selectedMark: input.draftChoice,
       selectedMarks,
       draftOptions: [],
-      enemies: enteringBoss ? spawnBoss(rng.fork('boss')) : spawnEncounter(nextIndex, rng.fork(`encounter-${nextIndex}`)),
+      enemies: opening.enemies,
+      encounterDirector: opening.director,
       previousInput: input,
       events: [{ type: 'markSelected', markId: input.draftChoice }],
     }
+  }
+
+  // 波次只在前一波完全清除後才進場；預告期內不推進敵方 AI，避免「瞬間包圍」。
+  if (state.enemies.length === 0 && state.encounterDirector.telegraphs.length > 0) {
+    const advanced = advanceWaveTelegraph(state.encounterDirector, state.seed)
+    if (advanced === null) throw new Error('波次預告狀態不一致')
+    return { ...state, tick: state.tick + 1, encounterDirector: advanced.director, enemies: advanced.enemies, previousInput: input, events: advanced.events }
   }
 
   // 一般遭遇或 Boss：先解算玩家主動行動，再解算敵人時序，
@@ -162,8 +174,19 @@ export function tick(state: GameState, input: TickInput): GameState {
   }
 
   if (allDefeated(enemyResult.enemies)) {
+    if (hasRemainingWaves(state.encounterDirector)) {
+      const announced = announceNextWave(state.encounterDirector, state.seed, enemyResult.player.position)
+      return { ...state, tick: state.tick + 1, player: enemyResult.player, enemies: [], encounterDirector: announced.director, previousInput: input, events: [...events, ...announced.events] }
+    }
     if (state.phase === 'boss') {
-      return { ...state, tick: state.tick + 1, phase: 'victory', player: enemyResult.player, enemies: enemyResult.enemies, previousInput: input, events: [...events, { type: 'victory' }] }
+      if (state.encounterIndex === 5) {
+        return { ...state, tick: state.tick + 1, phase: 'victory', player: enemyResult.player, enemies: enemyResult.enemies, previousInput: input, events: [...events, { type: 'bossCleared', room: 6 }, { type: 'victory' }] }
+      }
+      return {
+        ...state, tick: state.tick + 1, phase: 'draft', player: enemyResult.player, enemies: enemyResult.enemies,
+        draftOptions: draftOptions(state.seed, state.encounterIndex, state.selectedMarks), previousInput: input,
+        events: [...events, { type: 'bossCleared', room: 3 }, { type: 'draftOffered' }],
+      }
     }
     const encounter = ENCOUNTERS[state.encounterIndex]
     if (encounter === undefined) throw new Error(`不存在的遭遇索引 ${state.encounterIndex}`)

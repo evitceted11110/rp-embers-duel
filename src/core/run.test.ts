@@ -93,13 +93,13 @@ function autoplay(initial: GameState, maxTicks: number, draftChoice: MarkId): Ga
   return state
 }
 
-describe('run：三個戰區、六場遭遇、六次三選一與最終 Boss', () => {
+describe('run：兩段六關、第三與第六關 Boss 的波次遭遇', () => {
   it('createRun 建立遭遇1、玩家滿血、尚未選印記', () => {
     const state = createRun('flow-seed')
     expect(state.phase).toBe('encounter1')
     expect(state.selectedMark).toBeNull()
     expect(state.player.hp).toBe(220)
-    expect(state.enemies).toHaveLength(1) // z1-e1：焰奴×1
+    expect(state.enemies).toHaveLength(2) // z1-e1 第一波：焰奴×2；後續波次預告後進場
   })
 
   it('遭遇1清空後進入三選一（draft），畫面上只有三枚 keystone 可選', () => {
@@ -108,7 +108,7 @@ describe('run：三個戰區、六場遭遇、六次三選一與最終 Boss', ()
     const next = tick(state, input({ draftChoice: 'charged-retaliation' }))
     expect(next.phase).toBe('encounter2')
     expect(next.selectedMark).toBe('charged-retaliation')
-    expect(next.enemies).toHaveLength(3) // z1-e2：焰奴×2＋影刺客×1
+    expect(next.enemies).toHaveLength(2) // 第一波：焰奴＋影刺客；下一波會預告後進場
   })
 
   it('draft 階段暫停戰鬥計時：cooldown 等計時器不會在等待選擇時繼續推進', () => {
@@ -128,8 +128,8 @@ describe('run：三個戰區、六場遭遇、六次三選一與最終 Boss', ()
       const result = autoplay(createRun(`flow-${choice}`), 120000, choice)
       expect(result.phase, `index=${result.encounterIndex} hp=${result.player.hp} player=(${result.player.position.x.toFixed(2)},${result.player.position.y.toFixed(2)}) enemies=${result.enemies.map((enemy) => `${enemy.id}:${enemy.hp.toFixed(1)}@${enemy.position.x.toFixed(2)},${enemy.position.y.toFixed(2)}`).join('|')} marks=${result.selectedMarks.join(',')}`).toBe('victory')
       expect(result.selectedMarks).toContain(choice)
-      expect(result.selectedMarks).toHaveLength(6)
-      expect(result.encounterIndex).toBe(6)
+      expect(result.selectedMarks).toHaveLength(5)
+      expect(result.encounterIndex).toBe(5)
       expect(result.enemies.every((enemy) => enemy.hp <= 0)).toBe(true)
       expect(result.player.hp).toBeGreaterThan(0)
       expect(result.player.hp).toBeLessThanOrEqual(220)

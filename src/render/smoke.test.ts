@@ -151,7 +151,7 @@ describe('煙霧測試：輸入序列推進完整六遭遇、六次 draft 與 Bo
       const finalState = loop.getState()
       expect(finalState.phase).toBe('victory')
       expect(finalState.selectedMarks).toContain(draftChoice)
-      expect(finalState.selectedMarks).toHaveLength(6)
+      expect(finalState.selectedMarks).toHaveLength(5)
       expect(finalState.enemies.every((e) => e.hp <= 0)).toBe(true)
       expect(finalState.player.hp).toBeGreaterThan(0)
       // 玩家確實移動過（不是原地不動、輸入沒有真的傳到 core）。
