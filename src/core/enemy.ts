@@ -106,7 +106,9 @@ function bossPhase(enemy: EnemyState): 1 | 2 | 3 {
   return ratio <= 0.33 ? 3 : ratio <= 0.66 ? 2 : 1
 }
 
-function bossPattern(attacksPerformed: number, phase: number): BossAttackPattern {
+function bossPattern(attacksPerformed: number, phase: number, firstBoss = false): BossAttackPattern {
+  // 第三關以重擊為主、只在第二階段叫援軍；第六關較常穿插衝撞與增援。
+  if (firstBoss) return phase >= 2 && attacksPerformed % 4 === 3 ? 'summon' : attacksPerformed % 3 === 1 ? 'charge' : 'smash'
   if (phase >= 2 && attacksPerformed % 3 === 2) return 'summon'
   return attacksPerformed % 2 === 0 ? 'smash' : 'charge'
 }
@@ -121,7 +123,7 @@ function engagementDistance(enemy: EnemyState, phase: number): number {
   if (enemy.kind === 'ember-thrall') return 1.55
   if (enemy.kind === 'shade-skirmisher') return 3.1
   if (enemy.kind === 'bulwark-sentinel') return 2.35
-  const pattern = bossPattern(enemy.attacksPerformed ?? 0, phase)
+  const pattern = bossPattern(enemy.attacksPerformed ?? 0, phase, enemy.id.startsWith('r2-'))
   return pattern === 'smash' ? 2.4 : pattern === 'charge' ? 4.2 : 4.8
 }
 
@@ -146,7 +148,7 @@ function movementVelocity(enemy: EnemyState, allEnemies: readonly EnemyState[], 
     desired = add(scale(toward, def.moveSpeedUnitsPerS * radial), scale(tangent, def.moveSpeedUnitsPerS * 0.23))
     locomotion = Math.abs(radial) < 0.2 ? 'strafe' : radial < 0 ? 'retreat' : 'advance'
   } else {
-    const pattern = bossPattern(enemy.attacksPerformed ?? 0, phase)
+    const pattern = bossPattern(enemy.attacksPerformed ?? 0, phase, enemy.id.startsWith('r2-'))
     const targetDistance = pattern === 'smash' ? 1.75 : pattern === 'charge' ? 3.8 : 4.4
     const radial = Math.max(-1, Math.min(1, (dist - targetDistance) * 0.9))
     const orbit = pattern === 'summon' ? 0.42 : pattern === 'charge' ? 0.18 : 0.08
@@ -227,7 +229,7 @@ export function advanceEnemies(
       const moved = moveEnemy(enemy, enemies, player, phase)
       if (remaining > 0) return { ...moved, bossPhase: phase, timerTicks: remaining }
       const telegraphTicks = secondsToTicks(enemy.kind === 'ashen-warlord' ? (phase === 3 ? 0.55 : 0.8) : def.telegraphS)
-      const nextPattern = enemy.kind === 'ashen-warlord' ? bossPattern(enemy.attacksPerformed ?? 0, phase) : null
+      const nextPattern = enemy.kind === 'ashen-warlord' ? bossPattern(enemy.attacksPerformed ?? 0, phase, enemy.id.startsWith('r2-')) : null
       return {
         ...moved,
         bossPhase: phase,
