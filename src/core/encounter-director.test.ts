@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { WAVE_TELEGRAPH_TICKS } from './encounter-director.js'
+import { WAVE_TELEGRAPH_TICKS, createEncounterDirector } from './encounter-director.js'
 import { createRun, tick } from './run.js'
 import { input } from './test-utils.js'
 import type { GameState } from './types.js'
@@ -19,13 +19,23 @@ describe('遭遇導演：可重播分波、出生預告與安全環', () => {
 
     const announced = tick({ ...initial, enemies: initial.enemies.map((enemy) => ({ ...enemy, hp: 0 })) }, input())
     expect(announced.enemies).toEqual([])
-    expect(announced.encounterDirector.telegraphs).toHaveLength(2)
+    expect(announced.encounterDirector.telegraphs).toHaveLength(4)
     expect(announced.events.some((event) => event.type === 'waveTelegraphed')).toBe(true)
 
     let state = announced
     for (let i = 0; i < WAVE_TELEGRAPH_TICKS; i += 1) state = tick(state, input())
-    expect(state.enemies).toHaveLength(2)
+    expect(state.enemies).toHaveLength(4)
     expect(state.events.some((event) => event.type === 'waveSpawned')).toBe(true)
+  })
+
+  it('第一關共 12、含甲衛的後段房共 18，且每波不超過六名活躍敵人', () => {
+    const first = createRun('pressure').encounterDirector
+    expect(first.waves).toHaveLength(3)
+    expect(first.waves.flat()).toHaveLength(12)
+    expect(first.waves.every((wave) => wave.length <= 6)).toBe(true)
+    const fifth = createEncounterDirector(4)
+    expect(fifth.waves.flat()).toHaveLength(18)
+    expect(fifth.waves.every((wave) => wave.length <= 6)).toBe(true)
   })
 
   it('預告出生點不進入玩家安全環，且會避開貼邊時的撤退方向', () => {

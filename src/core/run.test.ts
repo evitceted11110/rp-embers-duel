@@ -108,7 +108,7 @@ describe('run：兩段六關、第三與第六關 Boss 的波次遭遇', () => {
     const next = tick(state, input({ draftChoice: 'charged-retaliation' }))
     expect(next.phase).toBe('encounter1')
     expect(next.selectedMark).toBe('charged-retaliation')
-    expect(next.enemies).toHaveLength(2)
+    expect(next.enemies).toHaveLength(4)
   })
 
   it('draft 階段暫停戰鬥計時：cooldown 等計時器不會在等待選擇時繼續推進', () => {

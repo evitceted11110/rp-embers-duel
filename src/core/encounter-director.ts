@@ -7,7 +7,7 @@ import { enemyTypeDef } from './enemy.js'
 import type { EncounterDirectorState, EnemyKind, EnemyState, GameEvent, SpawnTelegraph } from './types.js'
 import type { Vector2 } from './vector.js'
 
-export const MAX_SIMULTANEOUS_ENEMIES = 8
+export const MAX_SIMULTANEOUS_ENEMIES = 6
 export const WAVE_TELEGRAPH_TICKS = secondsToTicks(1.15)
 const SPAWN_DISTANCE = 4.7
 
@@ -19,9 +19,10 @@ function expand(roomIndex: number): EnemyKind[] {
 
 /** 普通房永遠拆為 2–3 波；單波上限 8，避免以同屏壓力取代可讀性。 */
 function splitWaves(kinds: readonly EnemyKind[]): readonly (readonly EnemyKind[])[] {
-  // 內容表仍保留教學版的少量參考值；實戰導演把它擴為至少四個脆敵，才能形成兩波清群節奏。
-  const swarm = kinds.length >= 4 ? [...kinds] : Array.from({ length: 4 }, (_, index) => kinds[index % kinds.length]!)
-  const count = swarm.length >= 9 ? 3 : 2
+  // 第 1 關 12、第五關 18；超額由後續 wave 排隊，絕不以 slice 丟棄。
+  const target = kinds.some((kind) => kind === 'bulwark-sentinel') ? 18 : 12
+  const swarm = Array.from({ length: target }, (_, index) => kinds[index % kinds.length]!)
+  const count = 3
   const waves: EnemyKind[][] = Array.from({ length: count }, () => [])
   for (let i = 0; i < swarm.length; i += 1) waves[i % count]!.push(swarm[i]!)
   return waves.filter((wave) => wave.length > 0).map((wave) => wave.slice(0, MAX_SIMULTANEOUS_ENEMIES))
@@ -83,8 +84,8 @@ function enemyFromTelegraph(seed: string, director: EncounterDirectorState, wave
     kind: telegraph.kind,
     position: telegraph.position,
     // 波次雜兵的耐久刻意低於 content 的單體基準：數量創造壓力，清群創造回饋。
-    hp: Math.max(1, Math.round(def.hp * (telegraph.kind === 'ashen-warlord' ? 0.62 : 0.5))),
-    maxHp: Math.max(1, Math.round(def.hp * (telegraph.kind === 'ashen-warlord' ? 0.62 : 0.5))),
+    hp: telegraph.kind === 'ember-thrall' ? 20 : telegraph.kind === 'shade-skirmisher' ? 38 : telegraph.kind === 'bulwark-sentinel' ? 70 : Math.max(1, Math.round(def.hp * 0.62)),
+    maxHp: telegraph.kind === 'ember-thrall' ? 20 : telegraph.kind === 'shade-skirmisher' ? 38 : telegraph.kind === 'bulwark-sentinel' ? 70 : Math.max(1, Math.round(def.hp * 0.62)),
     attackState: 'approach', velocity: { x: 0, y: 0 }, locomotion: 'advance', attackRecoveryTicksRemaining: 0,
     telegraphGeometry: null, timerTicks: Math.max(1, Math.round(intervalTicks * (0.5 + jitter * 0.5))),
     attacksPerformed: 0, bossPhase: telegraph.kind === 'ashen-warlord' ? 1 : 0, bossAttack: telegraph.kind === 'ashen-warlord' ? 'smash' : null,
