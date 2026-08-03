@@ -221,6 +221,22 @@ describe('三選一 draftChoice：只消費一次', () => {
     controller.submitDraftChoice('ember-core')
     expect(controller.buildTickInput('encounter1').draftChoice).toBeNull()
   })
+
+  it('進入 draft 時清掉最後一擊的 held 與既有 pending，必須重新按下或點選', () => {
+    const { window, controller } = setup()
+    window.dispatchMouseDown({ button: 0 })
+    window.dispatchKeyDown({ code: 'Space' })
+    controller.submitDraftChoice('ember-core')
+
+    controller.resetForDraft()
+
+    expect(controller.buildTickInput('draft')).toMatchObject({ attack: false, dodge: false, draftChoice: null })
+    window.dispatchMouseUp({ button: 0 })
+    window.dispatchKeyUp({ code: 'Space' })
+    expect(controller.buildTickInput('draft')).toMatchObject({ attack: false, dodge: false })
+    controller.submitDraftChoice('precision-afterimage')
+    expect(controller.buildTickInput('draft').draftChoice).toBe('precision-afterimage')
+  })
 })
 
 describe('快速重開鍵（RESTART_CODE，切片專用，不走可重綁系統）', () => {

@@ -60,6 +60,8 @@ export type InputController = {
   buildTickInput(phase: RunPhase): TickInput
   /** 三選一 UI 呼叫：下一次 `buildTickInput` 會帶上這個選擇，之後立刻清空。 */
   submitDraftChoice(markId: MarkId): void
+  /** 進入選卡前丟棄最後一擊的 held 與尚未消費 edge，要求新的明確操作。 */
+  resetForDraft(): void
   /** 重綁完成後呼叫，讓 controller 立刻改用新的鍵位判定。 */
   setBindings(bindings: BindingsState): void
   /** 目前生效的鍵位（重綁 UI 顯示用）。 */
@@ -143,6 +145,10 @@ export function createInputController(options: CreateInputControllerOptions): In
     },
     submitDraftChoice(markId: MarkId): void {
       pendingDraftChoice = markId
+    },
+    resetForDraft(): void {
+      clearHeldState()
+      pendingDraftChoice = null
     },
     setBindings(next: BindingsState): void {
       bindings = next

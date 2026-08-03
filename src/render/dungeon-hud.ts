@@ -1,7 +1,7 @@
 import type { MarkId } from '../core/index.js'
 import type { HudViewModel } from './hud-view.js'
 
-export type DungeonHudHandle = { update(model: HudViewModel, endingVisible?: boolean): void }
+export type DungeonHudHandle = { update(model: HudViewModel, endingVisible?: boolean, showClearFeedback?: boolean): void }
 
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text = ''): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag)
@@ -52,8 +52,9 @@ function installStyles(container: HTMLElement): void {
     .action-bar{position:absolute;left:50%;bottom:2.5%;transform:translateX(-50%);display:flex;gap:7px}.action-slot{width:92px;height:58px;padding:6px;position:relative;overflow:hidden}.action-slot.failed{animation:slotFail .18s 2;border-color:#7d2d32}.slot-cooldown{position:absolute;left:0;right:0;bottom:0;background:rgba(11,10,15,.72);transition:height .08s}.slot-label,.slot-key,.slot-time{position:relative;z-index:1}.slot-label{font-size:11px;color:#d0c4b0}.slot-key{font-size:15px;font-weight:900;color:#ffd37a}.slot-time{position:absolute;right:6px;bottom:5px;font-size:10px}
     .restart-hint{position:absolute;right:2%;bottom:3%;font-size:11px;color:#aeb4b4}.draft{position:absolute;inset:0;display:none;align-items:flex-end;justify-content:center;gap:1.2%;padding:0 4% 6%;background:rgba(16,15,22,.58);pointer-events:auto}.draft.visible{display:flex}.draft-title{position:absolute;top:9%;left:0;right:0;text-align:center}.draft-title b{display:block;font-size:25px;color:#ffd37a;letter-spacing:.18em}.draft-title span{font-size:13px}
     .mark-card{width:28%;max-width:300px;min-height:210px;padding:14px;background:linear-gradient(160deg,#393642,#211f2a 65%);color:#e6dcc4;border:3px solid var(--mark);box-shadow:inset 0 0 0 3px #100f16,0 7px 0 #100f16;text-align:left;cursor:pointer;font:inherit}.mark-card:hover,.mark-card:focus-visible{transform:translateY(-6px);outline:3px solid #fff0ad}.mark-glyph{width:32px;height:32px;display:grid;place-items:center;color:var(--mark);font-size:25px}.mark-name{font-size:18px;font-weight:900;color:var(--mark)}.mark-tag{font-size:11px;min-height:34px;margin:5px 0}.steps{display:flex;gap:4px;margin:9px 0}.step{flex:1;border:1px solid #746765;padding:6px 3px;text-align:center;font-size:10px;background:#17151c}.step+.step:before{content:"› ";color:var(--mark)}.feedback{font-size:11px;line-height:1.45;color:#c7baa5}
+    .clear-feedback{position:absolute;inset:0;display:none;place-items:center;background:radial-gradient(circle,rgba(255,211,122,.12),transparent 48%);font-size:24px;font-weight:900;letter-spacing:.22em;color:#ffd37a;animation:clearPulse .7s ease-out;pointer-events:none}.clear-feedback.visible{display:grid}
     .ending{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;background:rgba(16,15,22,.64);pointer-events:none}.ending.visible{display:flex}.ending-box{padding:24px 40px;text-align:center;min-width:310px}.ending h1{margin:0;color:#ffd37a;font-size:34px;letter-spacing:.16em}.ending p{font-size:14px}.ending .ending-key{display:inline-block;border:2px solid #746765;padding:7px 14px;color:#e6dcc4;background:#211f2a}
-    @keyframes slotFail{50%{transform:translateX(4px);filter:brightness(.55)}}
+    @keyframes slotFail{50%{transform:translateX(4px);filter:brightness(.55)}}@keyframes clearPulse{0%{opacity:0;transform:scale(.85)}30%{opacity:1}100%{opacity:.72;transform:scale(1)}}
     @media(max-width:760px){.hero-status{width:42%;grid-template-columns:34px 1fr;padding:5px}.portrait{width:30px;height:30px}.objective{min-width:150px;padding:6px}.action-slot{width:66px;height:46px;padding:4px}.slot-label{font-size:9px}.slot-key{font-size:11px}.mark-card{min-height:175px;padding:8px}.feedback{display:none}.steps{flex-direction:column}.draft{padding-bottom:3%}}
   `
   container.appendChild(style)
@@ -109,6 +110,9 @@ export function mountDungeonHud(container: HTMLElement, onSelectMark: (mark: Mar
   const cardNodes = new Map<MarkId, { button: HTMLButtonElement; name: HTMLElement; tag: HTMLElement; feedback: HTMLElement }>()
   root.appendChild(draft)
 
+  const clearFeedback = element('section', 'clear-feedback', '遭遇突破')
+  root.appendChild(clearFeedback)
+
   const ending = element('section', 'ending')
   const endingBox = element('div', 'ending-box hud-panel')
   const endingTitle = element('h1', '')
@@ -147,7 +151,7 @@ export function mountDungeonHud(container: HTMLElement, onSelectMark: (mark: Mar
   }
 
   return {
-    update(model: HudViewModel, endingVisible = true): void {
+    update(model: HudViewModel, endingVisible = true, showClearFeedback = false): void {
       hpText.textContent = model.hpText
       hpFill.style.width = `${model.hpPercent}%`
       if (model.hpPercent < previousHp) delayedHp = previousHp
@@ -177,6 +181,7 @@ export function mountDungeonHud(container: HTMLElement, onSelectMark: (mark: Mar
         nodes.feedback.textContent = card.visibleFeedback
       }
       draft.classList.toggle('visible', model.showDraft)
+      clearFeedback.classList.toggle('visible', showClearFeedback)
       ending.classList.toggle('visible', model.banner !== null && endingVisible)
       if (model.banner !== null) {
         endingTitle.textContent = model.banner.title

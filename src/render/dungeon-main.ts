@@ -9,6 +9,7 @@ import {
   worldToDungeon,
 } from '../visual/dungeon-art.js'
 import { mountDungeonHud } from './dungeon-hud.js'
+import { createDraftTransition } from './draft-transition.js'
 import { paintDungeon } from './dungeon-view.js'
 import { createGameLoop, type GameLoop } from './game-loop.js'
 import { buildHudViewModel } from './hud-view.js'
@@ -80,7 +81,12 @@ const inputController = createInputController({
 })
 const audioDirector = createAudioDirector(createWebAudioBackend)
 const precisionSlowMotion = createPrecisionSlowMotion()
-const hud = mountDungeonHud(stage, (mark) => inputController.submitDraftChoice(mark))
+let currentFrameNowMs = 0
+const draftTransition = createDraftTransition(() => inputController.resetForDraft())
+const hud = mountDungeonHud(stage, (mark) => {
+  const accepted = draftTransition.trySelect(mark, currentFrameNowMs)
+  if (accepted !== null) inputController.submitDraftChoice(accepted)
+})
 
 const settingsButton = document.createElement('button')
 settingsButton.type = 'button'
@@ -122,12 +128,12 @@ const unlockAudio = (): void => {
 window.addEventListener('pointerdown', unlockAudio)
 window.addEventListener('keydown', unlockAudio)
 
-let currentFrameNowMs = 0
 let slowMotionAudioActive = false
 const loop: GameLoop = createGameLoop({
   seed: 'vertical-slice-rework-0.1.0',
   buildInput: () => inputController.buildTickInput(loop.getState().phase),
   onStateAdvanced: (previous, next) => {
+    draftTransition.observePhase(next.phase, currentFrameNowMs)
     if (precisionSlowMotion.observe(next, currentFrameNowMs)) {
       slowMotionAudioActive = true
       audioDirector.setTimeScale(PRECISION_SLOW_MOTION_TIME_SCALE)
@@ -185,7 +191,9 @@ function frame(nowMs: number): void {
       paintDungeon(ctx, presentationState, vfx, slowMotion)
     }
     const endingVisible = terminalPhaseStartedMs === null || nowMs - terminalPhaseStartedMs >= (state.phase === 'victory' ? 2200 : 900)
-    hud.update(buildHudViewModel(state, inputController.getBindings()), endingVisible)
+    const draftPresentation = draftTransition.presentation(state.phase, nowMs)
+    const hudModel = buildHudViewModel(state, inputController.getBindings())
+    hud.update({ ...hudModel, showDraft: hudModel.showDraft && draftPresentation.showDraft }, endingVisible, draftPresentation.showClearFeedback)
     requestAnimationFrame(frame)
   } catch (error) {
     reportRuntimeCrash(error)
