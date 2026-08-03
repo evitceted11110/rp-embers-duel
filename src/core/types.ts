@@ -1,4 +1,5 @@
 import type { Vector2 } from './vector.js'
+import type { PlayerAttackGeometry } from './player-attack-geometry.js'
 
 // ---------------------------------------------------------------------------
 // 輸入：純資料，不是事件（硬規定 4）。
@@ -14,6 +15,9 @@ export type TickInput = {
   /** -1..1，正規化前的原始移動輸入（例如同時按 A 與 D 應為 0）。 */
   readonly moveX: number
   readonly moveY: number
+  /** 玩家到游標的 core 世界方向；(0, 0) 代表維持目前 facing。 */
+  readonly aimX: number
+  readonly aimY: number
   readonly attack: boolean
   readonly dodge: boolean
   readonly skillQ: boolean
@@ -25,12 +29,7 @@ export type TickInput = {
    */
   readonly draftChoice: MarkId | null
   /**
-   * 快速重開：回到遭遇一開頭、清空已選印記。
-   *
-   * ⚠️ 這是 Vertical Slice 專用的測試便利機制，不是正式遊戲功能——正式版沒有
-   * 「三選一只能選一次、且只有一枚生效」的設計，重開來換流派這件事本身只在
-   * 本切片有意義（一局只體驗一條流派，Gate 3 需要在幾分鐘內把三條流派都摸過）。
-   * 未來若有人想把這個接進正式版的重玩/進度系統，請先回頭確認這條備註。
+  * 快速重開：回到遭遇一開頭、清空完整已選 build。
    */
   readonly restart: boolean
 }
@@ -39,6 +38,8 @@ export function neutralInput(): TickInput {
   return {
     moveX: 0,
     moveY: 0,
+    aimX: 0,
+    aimY: 0,
     attack: false,
     dodge: false,
     skillQ: false,
@@ -52,8 +53,19 @@ export function neutralInput(): TickInput {
 // 印記
 // ---------------------------------------------------------------------------
 
-/** 本切片範圍：僅三枚 keystone 印記（一條流派各一枚），三選一只能選其中一枚。 */
-export type MarkId = 'ember-core' | 'precision-afterimage' | 'charged-retaliation'
+export type MarkId =
+  | 'ember-core'
+  | 'cracking-flame-combo'
+  | 'twin-core-resonance'
+  | 'ember-sacrifice'
+  | 'precision-afterimage'
+  | 'pursuit-strike'
+  | 'phantom-reset'
+  | 'shadow-harvest'
+  | 'charged-retaliation'
+  | 'aftershock-shield'
+  | 'mirror-plating'
+  | 'bulwark-chain'
 
 // ---------------------------------------------------------------------------
 // 玩家狀態
@@ -67,6 +79,10 @@ export type ComboState = {
   readonly phase: ComboPhase
   /** 目前 phase 的剩餘 tick 數。 */
   readonly phaseTicksRemaining: number
+  /** startup／active 尾端或 connection window 收到的攻擊意圖，於窗口結束時兌現。 */
+  readonly attackQueued?: boolean
+  /** active window 的權威主斬幾何；命中當 tick 快照，避免位移／資源消耗後重算。 */
+  readonly attackGeometry?: PlayerAttackGeometry
 }
 
 export type DodgeState = {
@@ -116,14 +132,28 @@ export type PlayerState = {
   readonly afterimages: readonly AfterimageObject[]
   /** 蓄能反震 keystone：目前蓄能層數（上限 max_stacks）。 */
   readonly guardStacks: number
+  /** 突進追擊：精準閃避後可兌現的第一段窗口。 */
+  readonly pursuitTicksRemaining: number
+  /** 餘波護盾格擋後，下一次反震衝擊的一次性加成。 */
+  readonly aftershockBonusReady: boolean
+  /** 鏡甲反傷 Q 的完全格擋姿態。 */
+  readonly mirrorStanceTicksRemaining: number
 }
 
 // ---------------------------------------------------------------------------
 // 敵人狀態
 // ---------------------------------------------------------------------------
 
-export type EnemyKind = 'ember-thrall' | 'shade-skirmisher'
+export type EnemyKind = 'ember-thrall' | 'shade-skirmisher' | 'bulwark-sentinel' | 'ashen-warlord'
 export type EnemyAttackState = 'approach' | 'cooldown' | 'telegraph'
+export type BossAttackPattern = 'smash' | 'charge' | 'summon'
+export type EnemyLocomotion = 'idle' | 'advance' | 'strafe' | 'retreat' | 'dash' | 'brace' | 'recover'
+
+export type EnemyAttackGeometry =
+  | { readonly kind: 'cone'; readonly origin: Vector2; readonly direction: Vector2; readonly radius: number; readonly halfAngleRad: number }
+  | { readonly kind: 'lane'; readonly origin: Vector2; readonly direction: Vector2; readonly length: number; readonly halfWidth: number }
+  | { readonly kind: 'circle'; readonly center: Vector2; readonly radius: number }
+  | { readonly kind: 'summon'; readonly circles: readonly { readonly center: Vector2; readonly radius: number }[] }
 
 export type EnemyState = {
   readonly id: string
@@ -132,8 +162,17 @@ export type EnemyState = {
   readonly hp: number
   readonly maxHp: number
   readonly attackState: EnemyAttackState
+  /** 本 tick 的實際世界速度；render 直接以此選擇走路／側移／突進表演。 */
+  readonly velocity: Vector2
+  readonly locomotion: EnemyLocomotion
+  readonly attackRecoveryTicksRemaining: number
+  /** 進入 telegraph 當 tick 鎖定；判定與 render 必須共同使用這份幾何快照。 */
+  readonly telegraphGeometry: EnemyAttackGeometry | null
   /** 依 attackState 意義不同：'cooldown' 時是距離下次預兆的 tick 數；'telegraph' 時是距離判定生效的 tick 數。 */
   readonly timerTicks: number
+  readonly attacksPerformed?: number
+  readonly bossPhase?: 0 | 1 | 2 | 3
+  readonly bossAttack?: BossAttackPattern | null
 }
 
 // ---------------------------------------------------------------------------
@@ -142,8 +181,8 @@ export type EnemyState = {
 // ---------------------------------------------------------------------------
 
 export type GameEvent =
-  | { readonly type: 'comboHit'; readonly hitIndex: 1 | 2 | 3; readonly damage: number; readonly targetId: string }
-  | { readonly type: 'comboWhiff' }
+  | { readonly type: 'comboHit'; readonly hitIndex: 1 | 2 | 3; readonly damage: number; readonly targetId: string; readonly geometry: PlayerAttackGeometry }
+  | { readonly type: 'comboWhiff'; readonly geometry: PlayerAttackGeometry }
   | { readonly type: 'dodgeStart'; readonly precision: boolean; readonly bent: boolean }
   | { readonly type: 'coreArmed'; readonly position: Vector2 }
   | { readonly type: 'coreDetonated'; readonly position: Vector2 }
@@ -154,23 +193,31 @@ export type GameEvent =
   | { readonly type: 'playerHit'; readonly damage: number }
   | { readonly type: 'playerBlocked' }
   | { readonly type: 'enemyDefeated'; readonly id: string }
-  | { readonly type: 'encounterCleared'; readonly encounter: 'z1-e1' | 'z1-e2' }
+  | { readonly type: 'encounterCleared'; readonly encounter: EncounterId }
   | { readonly type: 'draftOffered' }
   | { readonly type: 'markSelected'; readonly markId: MarkId }
   | { readonly type: 'victory' }
   | { readonly type: 'defeat' }
+  | { readonly type: 'bossPhaseChanged'; readonly phase: 2 | 3 }
+  | { readonly type: 'bossSummoned'; readonly count: number }
 
 // ---------------------------------------------------------------------------
 // 頂層執行狀態
 // ---------------------------------------------------------------------------
 
-export type RunPhase = 'encounter1' | 'draft' | 'encounter2' | 'victory' | 'defeat'
+export type EncounterId = 'z1-e1' | 'z1-e2' | 'z2-e1' | 'z2-e2' | 'z3-e1' | 'z3-e2'
+export type EncounterPhase = 'encounter1' | 'encounter2' | 'encounter3' | 'encounter4' | 'encounter5' | 'encounter6'
+export type RunPhase = EncounterPhase | 'draft' | 'boss' | 'victory' | 'defeat'
 
 export type GameState = {
   readonly seed: string
   readonly tick: number
   readonly phase: RunPhase
+  /** 0..5 為非 Boss 遭遇索引；Boss 時為 6。 */
+  readonly encounterIndex: number
   readonly selectedMark: MarkId | null
+  readonly selectedMarks: readonly MarkId[]
+  readonly draftOptions: readonly MarkId[]
   readonly player: PlayerState
   readonly enemies: readonly EnemyState[]
   readonly previousInput: TickInput

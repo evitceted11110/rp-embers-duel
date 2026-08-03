@@ -4,6 +4,39 @@
 
 日期：2026-07-30
 
+## Gate 3 核心戰鬥修訂（2026-08-03）
+
+### 真人第四次回饋落地：劍光與玩家普攻碰撞 envelope
+
+- 真人指出「實際劍光碰到敵人，但碰撞區明顯過小」。根因不是單一 range 數字：舊 core 只檢查敵人腳點／中心是否落在扇形內，忽略 sprite hurtbox；render 又在裂焰／追擊／鐵壁分支另寫 2.2、2.5、×1.3，且命中後追擊窗口會被消耗，造成 VFX 重算錯誤。
+- 三段 base physical blade reach 校準為 **1.30／1.45／1.95 units**；在 640×360、22px/unit 下，中心線為 **28.6／31.9／42.9px**，加上 8／9／11px 主刃帶的半寬後，最外可見刃緣為 **32.6／36.4／48.4px**。半角為 61.2°／54°／75.6°。damage、HP、敵速與 content 數值不變。
+- `PlayerAttackGeometry` 是 base 三段與裂焰連擊、突進追擊、鐵壁連動的唯一主斬幾何來源，包含 active 起點、facing、physical reach、half-angle、hit index、可見 stroke 半寬與 hurtbox 規則。startup／active cue、combat 與命中後 VFX 讀同一 helper／快照，不得在 render 另寫距離倍率。
+- 敵人使用按 kind 固定的 deterministic 圓形 hurtbox：焰奴 0.50、影刺客 0.42、甲衛 0.72、Boss 1.00 units。命中定義為「目標 hurtbox 圓與主斬扇形／可見刃帶相交」，同時精確檢查徑向外緣與兩條角度側邊，不得退化為只做 `range + radius` 的中心距離判斷。
+- physical blade reach 是劍光中心線的主動攻擊距離；hurtbox overlap 是允許可見刃帶擦到敵人身體時命中的接觸規則，不是把武器本身偷偷延長。裂焰的主斬仍是同一扇形；`secondary_splash_damage` 是命中主目標後才觸發的獨立圓形 splash，不得拿 splash 圓替代主斬 sector。
+- `comboHit`／`comboWhiff` 與 active `ComboState` 都保存命中當刻 geometry；因此 pursuit window 清零、guard stack 改變或玩家已完成 lunge 後，startup／active cue 與殘留劍光仍不會改成另一個範圍。
+
+### 真人第三次回饋落地：輕輕重、追逃、命中反應與場界
+
+- 普攻是明確的**輕、輕、重**：第一／二段 startup 0.05s、active 0.04s，第三段 startup 0.11s、active 0.08s；這些動作時間與段間連接窗口分開計算。第一段 active 結束後有 **0.10s** 連接窗口，窗口內輸入會在窗口結束接第二段；第二段後為 **0.20s**，接第三段重擊；第三段後 loop 窗口定義為 **0.20s**，接回第一段。窗口逾時未輸入即回 idle，之後再按必須從第一段開始。held 視為持續的後續輸入意圖，故完整循環為 0.19／0.29／0.39s，合計 **0.87s**，並無限循環 1→2→3→1。傷害維持 8／10／16；physical reach 為 1.30／1.45／1.95 units。第三段半角 75.6°、推進 0.22 units、命中 recoil 0.32 units，均明顯高於輕擊。任一連接窗口仍可用閃避取消。
+- 玩家正常移速為 **6.5 units/s**，高於全部敵人的持續 steering 上限：焰奴 2.5、影刺客 5.0、甲衛 1.8、Boss 2.1 units/s。只有已預兆的 lane dash／charge 可短暫更快。影刺客後撤目標縮到 2.1／2.65 units，後撤徑向速度最多使用自身上限的 72%，避免永久 kite。
+- 每次普攻命中在 core 產生 deterministic enemy recoil 與短 recovery：第一／二／三段 recoil 0.08／0.11／0.32 units，reaction recovery 0.03／0.04／0.09s；位置必須 clamp，且不新增會取代敵人 attack state 的長硬直。render 以 light／heavy tier 顯示接觸爆閃、白閃壓縮後仰、方向碎屑；重擊 3 幀 visual hit-stop、2px shake，輕擊 2 幀、1px。core tick 與輸入不中止。
+- core 公開 `ARENA_BOUNDS`、`clampToArena()`、`isInsideArena()` 作唯一真相來源。bounds 為 x = −11.2..11.2、y = −5.5..5.0 core units，映射到 640×360 canvas 的可走區；保留完整角色 sprite 邊距，HUD overlay 不參與世界邊界。每 tick 最終 player position、dodge endpoint、普攻／Q 推進、殘影瞬移、敵人 steering／knockback／dash／summon 都必須 clamp。
+- 普攻判定與畫面扇形仍共同讀取 core 的 `ATTACK_RANGES_UNITS`／`ATTACK_HALF_ANGLES_RAD`。第一段骨白短弧、第二段餘燼橘反向弧、第三段火芯金長寬終結弧；弧寬、劍軌與 impact tier 不得只靠顏色區分。
+
+真人第二次 Gate 3 回饋指出：敵人接近後原地停住、預兆畫面與實際範圍不一致、戰鬥節奏過慢。這是核心戰鬥退回，不是單純美術補強；因此本節明確覆蓋下方仍寫著「不授權修改 `src/core/`」的 2026-07-31 舊邊界。生命、傷害、護甲與敵人編成仍不變；只修正即時工程時序、移動 AI、攻擊幾何與表現同步。
+
+- 上一輪的三段同值 0.08／0.05／0.15s 已由本輪「輕、輕、重」分級覆蓋；攻擊仍在各段 active window 開始時結算。
+- 敵人不再以 1.2 units 為永久停車線。焰奴持續壓近並微幅追蹤；影刺客依攻擊次數換側、拉距後沿鎖定 lane 突進；甲衛維持中距並緩慢側向封位；Boss 依 smash／charge／summon 分別壓近、拉開與繞行。所有敵人套用以 id 決定方向的 deterministic separation，禁止 `Math.random()`。
+- 預兆開始當 tick 將方向、起點、落點與範圍鎖入 `EnemyState.telegraphGeometry`。焰奴與甲衛使用不同半徑／半角的 cone；影刺客與 Boss charge 使用 lane；Boss smash 使用 circle；summon 使用固定 circles。core 命中與 render 提示只使用同一份公開 geometry helpers／constants；玩家離開鎖定提示即安全，留在提示內才命中。
+- 敵人的實際 `velocity` 與 `locomotion` 進入公開狀態，render 依此顯示走路、側移、後撤、突進殘影、腳步塵與短 recovery。命中使用 40–60ms 純視覺 hit-stop 與 1–2px 短震動；core 100Hz 決定性 tick 不凍結。
+- 首次攻擊延遲在接近期間同步倒數，避免敵人抵達後才重新空等；既有 `attack_interval_cycles`、HP、damage 與 content 數值不變。Gate 2 聚合 sim 因未修改 content 數值，仍以 1.1s cycle 模型重跑作回歸保護；它不模擬即時空間走位，不能代替本節新增的 core trajectory／geometry 測試。
+
+## Gate 3 重製覆蓋（2026-07-31）
+
+真人 Gate 3 已否決本文件原先的「單畫面黑曜決鬥場」以及後續採用的「160×90 巨像素黑底微縮舞台」呈現方向。Vertical Slice 的最新場景、角色、敵人、探索動線、動畫、特效、HUD、鏡頭與座標映射規格，以 [rework-0.1.0.md](./rework-0.1.0.md) 為準；本文件中與其衝突的 render／visual 描述、單畫面競技場假設與零資產限制均被覆蓋，不得再作為實作基底。
+
+本文件的核心戰鬥規則、輸入與重綁要求、音訊事件意圖、敵人與印記內容、兩場 Vertical Slice 遭遇編成及所有既有平衡數值仍保留。重製只改變產品呈現與短地城流程，不授權修改 `src/core/` 平衡、`content/` 數值或 `sim/` 結果。
+
 Scope：medium（提案 `scope_estimate`）；單局目標時間：**15–20 分鐘**
 
 ## 一句話
@@ -94,7 +127,7 @@ Scope：medium（提案 `scope_estimate`）；單局目標時間：**15–20 分
   | 第一段 | 8 | 起手橫斬 |
   | 第二段 | 10 | 接續斬擊，需在上一段生效後的連段窗口內輸入，逾時重置為第一段 |
   | 第三段（finisher） | 16 | 突刺；裂焰連擊印記將其改為 120° 扇形、傷害提升至 20 |
-  三段合計 34 點傷害，設計為一次完整連擊約 1.1 秒（模擬中作為一個「連擊循環」的時間單位）。
+  三段合計 34 點傷害。Gate 3 最新真人回饋後，即時 core 的輕／輕／重 held 循環為 **0.87 秒**：startup／active 合計 0.09／0.09／0.19 秒，active 後連接窗口為 0.10／0.20／0.20 秒。Gate 2 模擬為保持既有平衡基準，仍以 1.1 秒作聚合「連擊循環」時間單位，兩者用途不同且不得混稱。
 - 閃避：可在普攻任一段的後搖期間輸入取消；設計目標無敵幀窗口 0.28 秒（略長於敵人最短預兆 350ms 的判定容錯，短到不能無腦連按），基礎冷卻 1.1 秒。模擬中以「成功率」參數化：`playerSkill(0.735–0.875) + 敵人 dodge_difficulty_modifier − 同時預兆敵人數 × 0.05`，其中低於「成功率 − 0.30」的擲骰視為「精準閃避」（更窄的子窗口，對應敵方攻擊判定生效前 0.12 秒內完成），供影步系印記讀取。
 - Q（戰技一）基礎版：突進斬，傷害 12，冷卻 6 秒，被印記改寫時見〈十二枚印記〉。
 - E（戰技二）基礎版：破隙衝擊，主目標傷害 18、若有第二目標額外 9 傷害並擊退，冷卻 12 秒，被印記改寫時見〈十二枚印記〉。

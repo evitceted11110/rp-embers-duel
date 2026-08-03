@@ -1,27 +1,47 @@
-# 範本自足性驗證
+# 《餘燼決鬥場》1.0.0-rc.1 完整流程 Smoke Test
 
-2026-07-28 使用 `pnpm new-game` 在乾淨臨時目錄產生 `rp-template-smoke`。
+本文件是人工瀏覽器驗收清單，不是已通過聲明。每次執行須記錄瀏覽器、作業系統、日期、seed、console 與結果；未實際執行的項目只能標示「未驗證」。
 
-首次驗證時 `@rogue-paradise/*` 0.1.0 尚未公開發布，測試副本以三個本機 tarball override 取代 registry 版本；正式範本的 `package.json` 仍只有公開 semver，不含 `file:`、`link:` 或 `workspace:` 依賴。
+## 啟動
 
-臨時副本執行 `pnpm verify` 的結果：
+1. 執行 `pnpm install && pnpm dev --host 127.0.0.1`。
+2. 以瀏覽器開啟 Vite 顯示的網址。
+3. 確認首次互動前沒有自動播放；點擊後音訊才啟動。
+4. 開啟 DevTools，整輪保持 console 可見並記錄 error／unhandled rejection。
 
-```text
-lint 通過
-typecheck 通過（core 與 app 分離）
-Test Files  1 passed (1)
-Tests  1 passed (1)
-vite v8.1.5 build 通過
-```
+## 六遭遇與場景
 
-## 公開 Registry 自足性驗證
+依序完成遭遇 1–6，確認：
 
-2026-07-28 三個共用套件公開發布並完成 registry 同步後，在全新暫存目錄以相同 `createGame` 產生器建立獨立 Git repo，未使用 workspace、override 或本機 tarball。
+- 遭遇 1–2 是橘紅溶爐前庭，具有火盆、鑄爐裂痕與石柱。
+- 遭遇 3–4 是藍紫熾影迴廊，具有冷火、光路與鏡影感地物。
+- 遭遇 5–6 是金紅決鬥場核心，具有環形馬賽克、旗幟／尖樁與王座構圖。
+- phase 進入正確房間；遭遇 3–6 不可回到溶爐前庭。
+- 焰奴、影刺客、甲衛剪影可直接區分；甲衛必須是塔盾重甲，不得使用影刺客雙刀 sprite。
 
-- `pnpm install` 從公開 registry 安裝 `@rogue-paradise/{rng,sim,platform-sdk}@0.1.0`
-- `pnpm lint` 通過
-- core 與 app TypeScript typecheck 通過
-- Vitest：1/1 通過
-- Vite production build 通過
+## 六次 Draft 與十二印記
 
-因此「只 clone 遊戲 repo 後直接 `pnpm install && pnpm verify`」紅線已正式驗證。
+每次 draft 記錄畫面上的三個選項與目前 build：
+
+1. 選項必須與 core 的 `draftOptions` 相同，不能顯示已選、前置未滿足或 slot 衝突印記。
+2. 選取後該印記加入 HUD build chips，先前選取不消失。
+3. 六次 draft 均能點選並進入下一場；最後一次進入 Boss。
+4. 以不同 seed／重開路線覆蓋十二枚印記，確認每枚有不同 glyph，且實際觸發時有場上幾何／動畫與可辨識音效，不只顯示名稱。
+
+重點觸發：雙核連線、裂焰第三斬、獻祭全核爆、殘影與瞬移、追擊突刺、虛影重置、暗影收割、三層護環、餘波金邊、鏡甲盾面、鐵壁擴大首斬。
+
+## 灰燼君主
+
+1. Boss 使用王冠巨斧 sprite，不得與影刺客共用造型。
+2. `smash` 是圓形落點；`charge` 是長直線衝鋒道；`summon` 是雙召喚圈。三者視覺與聲音都可盲辨。
+3. HP 跨過 66%／33% 時各有明顯全畫面階段演出與不同 cue，不得只改 HUD 文字。
+4. 第二階段可召喚焰奴；第三階段音樂威脅層與演出強度提高。
+
+## 終局、設定與效能
+
+- 勝利與戰敗各完成一次，R 可回到全新 run。
+- 重綁至少一個鍵、重新整理後確認 platform-sdk 保存；Mouse2 綁定時不彈出 context menu。
+- 分別調整 music／effects／ui，測試總靜音；靜音下所有危險仍可由畫面理解。
+- production build 依 bundle budget 通過。
+- 目標裝置記錄 60 秒 Performance trace；報告平均／P95 frame time。未量測不可宣稱 60fps。
+- 完整流程結束時記錄 console error 數；未開 DevTools 不可宣稱 console 乾淨。

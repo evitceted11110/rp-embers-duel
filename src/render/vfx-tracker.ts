@@ -14,7 +14,26 @@
  *    起點（瞬移前的位置）在事件當下已經不存在於 `nextGameState` 裡——只有比對
  *    「這一 tick 之前」與「這一 tick 之後」的玩家座標才能重建起訖點。
  */
-import type { GameState, Vector2 } from '../core/index.js'
+import type { EnemyKind, GameState, MarkId, PlayerAttackGeometry, Vector2 } from '../core/index.js'
+
+export type ImpactVfxTier = 'light' | 'heavy'
+
+export type ImpactVfxProfile = {
+  readonly tier: ImpactVfxTier
+  readonly flashTicks: number
+  readonly reactionScale: number
+  readonly debrisCount: number
+  readonly hitStopFrames: number
+  readonly shakePixels: number
+  readonly hitStopTicks: number
+  readonly shakeTicks: number
+}
+
+export function impactVfxTier(hitIndex: 1 | 2 | 3): ImpactVfxProfile {
+  return hitIndex === 3
+    ? { tier: 'heavy', flashTicks: 7, reactionScale: 1, debrisCount: 10, hitStopFrames: 3, shakePixels: 2, hitStopTicks: 6, shakeTicks: 8 }
+    : { tier: 'light', flashTicks: 4, reactionScale: 0.45, debrisCount: 6, hitStopFrames: 2, shakePixels: 1, hitStopTicks: 4, shakeTicks: 4 }
+}
 
 export type DodgeTrailSnapshot = {
   readonly startPosition: Vector2
@@ -32,6 +51,20 @@ export type TeleportStreakSnapshot = {
 export type VfxState = {
   readonly dodgeTrail: DodgeTrailSnapshot | null
   readonly teleportStreak: TeleportStreakSnapshot | null
+  readonly attack?: { readonly geometry: PlayerAttackGeometry; readonly hitIndex: 1 | 2 | 3; readonly tier: ImpactVfxTier; readonly hit: boolean; readonly damage: number; readonly spawnTick: number }
+  readonly enemyHit?: { readonly id: string; readonly position: Vector2; readonly damage: number; readonly tier: ImpactVfxTier; readonly facing: Vector2; readonly spawnTick: number }
+  readonly playerHit?: { readonly spawnTick: number }
+  readonly precisionDodge?: { readonly position: Vector2; readonly spawnTick: number }
+  readonly skill?: { readonly key: 'q' | 'e'; readonly mark: MarkId | null; readonly position: Vector2; readonly facing: Vector2; readonly spawnTick: number }
+  readonly blocked?: { readonly position: Vector2; readonly spawnTick: number }
+  readonly failedSkill?: { readonly spawnTick: number }
+  readonly coreDetonation?: { readonly position: Vector2; readonly spawnTick: number }
+  readonly bossTransition?: { readonly phase: 2 | 3; readonly position: Vector2; readonly spawnTick: number }
+  readonly deaths?: readonly { readonly id: string; readonly kind: EnemyKind; readonly position: Vector2; readonly facing: Vector2; readonly spawnTick: number }[]
+  readonly enemyDashes?: readonly { readonly id: string; readonly kind: EnemyKind; readonly from: Vector2; readonly to: Vector2; readonly direction: Vector2; readonly spawnTick: number }[]
+  readonly hitStopUntilTick?: number
+  readonly shakeUntilTick?: number
+  readonly shakePixels?: number
 }
 
 export const INITIAL_VFX_STATE: VfxState = { dodgeTrail: null, teleportStreak: null }
@@ -54,6 +87,20 @@ export function updateVfxState(previous: VfxState, prevGameState: GameState, nex
 
   let dodgeTrail = previous.dodgeTrail
   let teleportStreak = previous.teleportStreak
+  let attack = previous.attack
+  let enemyHit = previous.enemyHit
+  let playerHit = previous.playerHit
+  let precisionDodge = previous.precisionDodge
+  let skill = previous.skill
+  let blocked = previous.blocked
+  let failedSkill = previous.failedSkill
+  let coreDetonation = previous.coreDetonation
+  let bossTransition = previous.bossTransition
+  let deaths = (previous.deaths ?? []).filter((death) => nextGameState.tick - death.spawnTick <= 45)
+  let enemyDashes = (previous.enemyDashes ?? []).filter((dash) => nextGameState.tick - dash.spawnTick <= 18)
+  let hitStopUntilTick = previous.hitStopUntilTick
+  let shakeUntilTick = previous.shakeUntilTick
+  let shakePixels = previous.shakePixels
 
   for (const event of nextGameState.events) {
     if (event.type === 'dodgeStart') {
@@ -63,14 +110,71 @@ export function updateVfxState(previous: VfxState, prevGameState: GameState, nex
         bendTarget: nextGameState.player.dodge.bendTarget,
         spawnTick: nextGameState.tick,
       }
-    } else if (event.type === 'eCast' && nextGameState.selectedMark === 'precision-afterimage') {
+      if (event.precision) precisionDodge = { position: nextGameState.player.position, spawnTick: nextGameState.tick }
+    } else if (event.type === 'eCast' && (nextGameState.selectedMarks.includes('precision-afterimage') || nextGameState.selectedMark === 'precision-afterimage')) {
       teleportStreak = {
         from: prevGameState.player.position,
         to: nextGameState.player.position,
         spawnTick: nextGameState.tick,
       }
+      skill = { key: 'e', mark: nextGameState.selectedMark, position: nextGameState.player.position, facing: nextGameState.player.facing, spawnTick: nextGameState.tick }
+    } else if (event.type === 'comboHit') {
+      const target = prevGameState.enemies.find((enemy) => enemy.id === event.targetId)
+      const profile = impactVfxTier(event.hitIndex)
+      attack = { geometry: event.geometry, hitIndex: event.hitIndex, tier: profile.tier, hit: true, damage: event.damage, spawnTick: nextGameState.tick }
+      if (target !== undefined) enemyHit = { id: target.id, position: target.position, damage: event.damage, tier: profile.tier, facing: nextGameState.player.facing, spawnTick: nextGameState.tick }
+      hitStopUntilTick = nextGameState.tick + profile.hitStopTicks
+      shakeUntilTick = nextGameState.tick + profile.shakeTicks
+      shakePixels = profile.shakePixels
+    } else if (event.type === 'comboWhiff') {
+      const hitIndex = nextGameState.player.combo.hitIndex || 1
+      attack = { geometry: event.geometry, hitIndex, tier: impactVfxTier(hitIndex).tier, hit: false, damage: 0, spawnTick: nextGameState.tick }
+    } else if (event.type === 'playerHit') {
+      playerHit = { spawnTick: nextGameState.tick }
+      shakeUntilTick = nextGameState.tick + 10
+      shakePixels = 2
+    } else if (event.type === 'qCast') {
+      skill = { key: 'q', mark: nextGameState.selectedMark, position: prevGameState.player.position, facing: nextGameState.player.facing, spawnTick: nextGameState.tick }
+    } else if (event.type === 'eCast') {
+      skill = { key: 'e', mark: nextGameState.selectedMark, position: nextGameState.player.position, facing: nextGameState.player.facing, spawnTick: nextGameState.tick }
+    } else if (event.type === 'enemyDefeated') {
+      const defeated = prevGameState.enemies.find((enemy) => enemy.id === event.id)
+      if (defeated !== undefined) {
+        const dx = prevGameState.player.position.x - defeated.position.x
+        const dy = prevGameState.player.position.y - defeated.position.y
+        const length = Math.hypot(dx, dy) || 1
+        deaths = [...deaths, {
+          id: event.id,
+          kind: defeated.kind,
+          position: defeated.position,
+          facing: { x: dx / length, y: dy / length },
+          spawnTick: nextGameState.tick,
+        }].slice(-4)
+      }
+    } else if (event.type === 'playerBlocked') {
+      blocked = { position: nextGameState.player.position, spawnTick: nextGameState.tick }
+    } else if (event.type === 'eFailed') {
+      failedSkill = { spawnTick: nextGameState.tick }
+    } else if (event.type === 'coreDetonated') {
+      coreDetonation = { position: event.position, spawnTick: nextGameState.tick }
+    } else if (event.type === 'bossPhaseChanged') {
+      const boss = nextGameState.enemies.find((enemy) => enemy.kind === 'ashen-warlord')
+      bossTransition = { phase: event.phase, position: boss?.position ?? { x: 0, y: 0 }, spawnTick: nextGameState.tick }
     }
   }
 
-  return { dodgeTrail, teleportStreak }
+  for (const enemy of nextGameState.enemies) {
+    if (enemy.locomotion !== 'dash') continue
+    const before = prevGameState.enemies.find((candidate) => candidate.id === enemy.id)
+    if (before === undefined) continue
+    const dx = enemy.position.x - before.position.x
+    const dy = enemy.position.y - before.position.y
+    const length = Math.hypot(dx, dy) || 1
+    enemyDashes = [...enemyDashes.filter((dash) => dash.id !== enemy.id), {
+      id: enemy.id, kind: enemy.kind, from: before.position, to: enemy.position,
+      direction: { x: dx / length, y: dy / length }, spawnTick: nextGameState.tick,
+    }].slice(-4)
+  }
+
+  return { dodgeTrail, teleportStreak, attack, enemyHit, playerHit, precisionDodge, skill, blocked, failedSkill, coreDetonation, bossTransition, deaths, enemyDashes, hitStopUntilTick, shakeUntilTick, shakePixels }
 }

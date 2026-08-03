@@ -5,7 +5,43 @@
 export { createRun, tick } from './run.js'
 export { createRecorder, replay, replayHistory, type CrashDump, type Recorder } from './crash-dump.js'
 export { neutralInput } from './types.js'
-export { TICK_SECONDS } from './constants.js'
+export { ARENA_BOUNDS, clampToArena, isInsideArena } from './arena.js'
+export {
+  ATTACK_HALF_ANGLES_RAD,
+  ATTACK_ACTIVE_TIMES_S,
+  ATTACK_RECOVERY_S,
+  ATTACK_RANGES_UNITS,
+  ATTACK_STROKE_HALF_WIDTH_UNITS,
+  ATTACK_STARTUP_TIMES_S,
+  COMBO_LINK_WINDOWS_S,
+  ATTACK_RANGE_UNITS,
+  BASE_E_HALF_ANGLE_RAD,
+  BASE_E_RANGE_UNITS,
+  BASE_Q_HALF_ANGLE_RAD,
+  BASE_Q_TARGET_RANGE_UNITS,
+  BOSS_CHARGE_HALF_WIDTH_UNITS,
+  BOSS_CHARGE_LENGTH_UNITS,
+  BOSS_SMASH_RADIUS_UNITS,
+  BOSS_SUMMON_RADIUS_UNITS,
+  BULWARK_CONE_HALF_ANGLE_RAD,
+  BULWARK_CONE_RADIUS_UNITS,
+  GUARD_E_RADIUS_UNITS,
+  Q_LUNGE_DISTANCE_UNITS,
+  SKIRMISHER_LANE_HALF_WIDTH_UNITS,
+  SKIRMISHER_LANE_LENGTH_UNITS,
+  THRALL_CONE_HALF_ANGLE_RAD,
+  THRALL_CONE_RADIUS_UNITS,
+  TICK_SECONDS,
+} from './constants.js'
+export { EMBER_CORE, PRECISION_AFTERIMAGE } from './content.js'
+export { createEnemyAttackGeometry, enemyGeometryContains } from './enemy-geometry.js'
+export {
+  circleIntersectsSector,
+  createPlayerAttackGeometry,
+  enemyHurtboxRadius,
+  playerAttackHitsCircle,
+} from './player-attack-geometry.js'
+export type { PlayerAttackGeometry, PlayerAttackVariant } from './player-attack-geometry.js'
 
 export type {
   AfterimageObject,
@@ -14,7 +50,9 @@ export type {
   DodgeState,
   EmberCoreObject,
   EnemyAttackState,
+  EnemyAttackGeometry,
   EnemyKind,
+  EnemyLocomotion,
   EnemyState,
   GameEvent,
   GameState,

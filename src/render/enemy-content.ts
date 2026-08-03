@@ -20,5 +20,6 @@ function findEnemy(kind: EnemyKind): EnemyJson {
 
 /** 敵人從進入 `telegraph` 狀態到判定生效需要的秒數（`telegraph_ms` 換算）。 */
 export function telegraphSeconds(kind: EnemyKind): number {
+  if (kind === 'ashen-warlord') return 0.8
   return findEnemy(kind).telegraph_ms / 1000
 }

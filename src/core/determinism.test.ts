@@ -17,7 +17,13 @@ import type { GameState, TickInput } from './types.js'
 function richScript(): TickInput[] {
   const script: TickInput[] = []
   for (let i = 0; i < 60; i += 1) {
-    script.push(input({ moveX: Math.sin(i / 7), moveY: Math.cos(i / 11), attack: i % 4 === 0 }))
+    script.push(input({
+      moveX: Math.sin(i / 7),
+      moveY: Math.cos(i / 11),
+      aimX: Math.cos(i / 8) * 17,
+      aimY: Math.sin(i / 8) * 17,
+      attack: i % 4 === 0,
+    }))
   }
   script.push(input({ dodge: true, moveX: 1, moveY: 0 }))
   for (let i = 0; i < 40; i += 1) script.push(input({ attack: i % 3 === 0 }))
@@ -53,6 +59,15 @@ function runFullHistory(seed: string, script: readonly TickInput[]): GameState[]
 }
 
 describe('決定性重播', () => {
+  it('相同滑鼠 aim script 重播時，方向與命中結果逐 tick 一致', () => {
+    const script = Array.from({ length: 90 }, (_, index) => input({
+      aimX: Math.cos(index / 6) * 100,
+      aimY: Math.sin(index / 6) * 100,
+      attack: index % 20 === 0,
+    }))
+    expect(runFullHistory('aim-replay', script)).toEqual(runFullHistory('aim-replay', script))
+  })
+
   it('同一組 seed + 輸入序列，兩次獨立重播的每一 tick 狀態逐欄位完全相同', () => {
     const script = richScript()
     const historyA = runFullHistory('determinism-seed-1', script)

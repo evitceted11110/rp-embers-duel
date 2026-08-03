@@ -49,15 +49,33 @@ export type DraftCardContent = {
 
 const DRAFT_TAGLINES: Record<MarkId, string> = {
   'ember-core': 'Q：放置核心｜閃避：彎曲弧線引爆',
+  'cracking-flame-combo': '第三段：改為廣角裂焰終結斬',
+  'twin-core-resonance': 'Q：雙核心｜引爆：必定連鎖',
+  'ember-sacrifice': 'E：引爆全場已武裝核心',
   'precision-afterimage': '閃避：精準判定留殘影｜E：瞬移到殘影',
+  'pursuit-strike': '精準閃避後：第一斬變為突進刺擊',
+  'phantom-reset': '精準閃避：立即重置閃避冷卻',
+  'shadow-harvest': 'Q：所有殘影同步爆裂',
   'charged-retaliation': '閃避：疊蓄能護環｜E：層數兌現衝擊波',
+  'aftershock-shield': '滿蓄能：尾段必擋並強化下一次 E',
+  'mirror-plating': 'Q：舉盾格擋並反傷蓄能',
+  'bulwark-chain': '兩層蓄能：首斬擴大並維持連段',
 }
 
 /** 三選一畫面固定順序：裂焰／影步／守勢，對應 `content/marks.json` 的 keystone 印記。 */
 export const DRAFT_CARD_ORDER: readonly MarkId[] = [
   'ember-core',
+  'cracking-flame-combo',
+  'twin-core-resonance',
+  'ember-sacrifice',
   'precision-afterimage',
+  'pursuit-strike',
+  'phantom-reset',
+  'shadow-harvest',
   'charged-retaliation',
+  'aftershock-shield',
+  'mirror-plating',
+  'bulwark-chain',
 ]
 
 export function draftCardContent(id: MarkId): DraftCardContent {

@@ -6,7 +6,7 @@ import type { TickInput } from './types.js'
 function scriptedInputs(): TickInput[] {
   const inputs: TickInput[] = []
   for (let i = 0; i < 40; i += 1) {
-    inputs.push(input({ moveX: 1, attack: i % 3 === 0 }))
+    inputs.push(input({ moveX: 1, aimX: 3, aimY: -4, attack: i % 3 === 0 }))
   }
   inputs.push(input({ dodge: true, moveX: 0, moveY: 1 }))
   for (let i = 0; i < 30; i += 1) inputs.push(input())
@@ -25,6 +25,7 @@ describe('crash dump：seed ＋ 輸入序列可以一鍵重現', () => {
     const dump = recorder.dump()
     expect(dump.seed).toBe('crash-dump-seed')
     expect(dump.inputLog).toHaveLength(scriptedInputs().length)
+    expect(dump.inputLog[0]).toMatchObject({ aimX: 3, aimY: -4 })
 
     const replayed = replay(dump)
     expect(replayed).toEqual(recorded)

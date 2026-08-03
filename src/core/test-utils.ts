@@ -23,7 +23,14 @@ export function makeEnemy(
     hp: 200,
     maxHp: 200,
     attackState: 'approach',
+    velocity: { x: 0, y: 0 },
+    locomotion: 'idle',
+    attackRecoveryTicksRemaining: 0,
+    telegraphGeometry: null,
     timerTicks: 0,
+    attacksPerformed: 0,
+    bossPhase: 0,
+    bossAttack: null,
     ...overrides,
   }
 }

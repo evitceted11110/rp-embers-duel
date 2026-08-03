@@ -2,9 +2,8 @@
  * 頂層執行狀態機：`createRun(seed)` 建立初始狀態，`tick(state, input)` 是唯一的
  * 邏輯推進入口——固定步長、純函式、輸入是資料不是事件（硬規定 2、4）。
  *
- * 階段：encounter1 → draft → encounter2 → victory | defeat。
- * 任一階段收到 `input.restart` 都會立刻跳回全新的 encounter1（見 types.ts 對
- * `TickInput.restart` 的說明：這是 Vertical Slice 專用的快速重開，不是正式功能）。
+ * 階段：六次（encounterN → draft）→ boss → victory | defeat。
+ * 任一階段收到 `input.restart` 都會立刻跳回全新的 encounter1。
  *
  * ⚠️ 誠實揭露（Studio Head 2026-07-31 指示需記錄）：遭遇 2（焰奴×2＋影刺客×1）
  * 本來就比遭遇 1（焰奴×1）難。玩家在遭遇 2 的體感強度變化，一部分來自敵人數量
@@ -14,10 +13,11 @@
 import { createRng } from '@rogue-paradise/rng'
 import { resolvePlayerTick } from './combat.js'
 import { PLAYER_MAX_HP } from './constants.js'
-import { ZONE_1_CLEAR_HEAL_HP } from './content.js'
-import { advanceEnemies, spawnEncounter } from './enemy.js'
+import { ENCOUNTERS, MARKS, ZONE_CLEAR_HEALS, markDef } from './content.js'
+import { advanceEnemies, spawnBoss, spawnEncounter } from './enemy.js'
 import {
   neutralInput,
+  type EncounterPhase,
   type GameEvent,
   type GameState,
   type PlayerState,
@@ -51,7 +51,19 @@ function initialPlayer(): PlayerState {
     emberCores: [],
     afterimages: [],
     guardStacks: 0,
+    pursuitTicksRemaining: 0,
+    aftershockBonusReady: false,
+    mirrorStanceTicksRemaining: 0,
   }
+}
+
+const ENCOUNTER_PHASES: readonly EncounterPhase[] = ['encounter1', 'encounter2', 'encounter3', 'encounter4', 'encounter5', 'encounter6']
+
+function draftOptions(seed: string, draftIndex: number, selected: readonly import('./types.js').MarkId[]): readonly import('./types.js').MarkId[] {
+  if (draftIndex === 0) return ['ember-core', 'precision-afterimage', 'charged-retaliation']
+  const occupiedSlots = new Set(selected.map((id) => markDef(id).slot).filter((slot) => slot !== null))
+  const eligible = MARKS.filter((mark) => !selected.includes(mark.id) && (mark.requires === null || selected.includes(mark.requires)) && (mark.slot === null || !occupiedSlots.has(mark.slot)))
+  return createRng(seed).fork(`draft-${draftIndex}`).shuffle(eligible.map((mark) => mark.id)).slice(0, 3)
 }
 
 /**
@@ -67,9 +79,12 @@ export function createRun(seed: string): GameState {
     seed,
     tick: 0,
     phase: 'encounter1',
+    encounterIndex: 0,
     selectedMark: null,
+    selectedMarks: [],
+    draftOptions: [],
     player: initialPlayer(),
-    enemies: spawnEncounter('z1-e1', rng.fork('encounter1')),
+    enemies: spawnEncounter(0, rng.fork('encounter-0')),
     previousInput: neutralInput(),
     events: [],
   }
@@ -98,19 +113,26 @@ export function tick(state: GameState, input: TickInput): GameState {
     if (input.draftChoice === null) {
       return { ...state, tick: state.tick + 1, previousInput: input, events: [] }
     }
+    if (!state.draftOptions.includes(input.draftChoice)) return { ...state, tick: state.tick + 1, previousInput: input, events: [] }
     const rng = createRng(state.seed)
+    const selectedMarks = [...state.selectedMarks, input.draftChoice]
+    const nextIndex = state.encounterIndex + 1
+    const enteringBoss = nextIndex >= ENCOUNTERS.length
     return {
       ...state,
       tick: state.tick + 1,
-      phase: 'encounter2',
+      phase: enteringBoss ? 'boss' : ENCOUNTER_PHASES[nextIndex]!,
+      encounterIndex: nextIndex,
       selectedMark: input.draftChoice,
-      enemies: spawnEncounter('z1-e2', rng.fork('encounter2')),
+      selectedMarks,
+      draftOptions: [],
+      enemies: enteringBoss ? spawnBoss(rng.fork('boss')) : spawnEncounter(nextIndex, rng.fork(`encounter-${nextIndex}`)),
       previousInput: input,
       events: [{ type: 'markSelected', markId: input.draftChoice }],
     }
   }
 
-  // phase === 'encounter1' | 'encounter2'：先解算玩家主動行動，再解算敵人時序，
+  // 一般遭遇或 Boss：先解算玩家主動行動，再解算敵人時序，
   // 確保「這一 tick 剛觸發的閃避無敵幀」在同一 tick 內就能保護玩家（見 combat.ts
   // 與 enemy.ts 模組頂端註解的處理順序說明）。
   const playerResult = resolvePlayerTick(
@@ -118,12 +140,12 @@ export function tick(state: GameState, input: TickInput): GameState {
     state.enemies,
     input,
     state.previousInput,
-    state.selectedMark,
+    state.selectedMarks.length > 0 ? state.selectedMarks : state.selectedMark === null ? [] : [state.selectedMark],
   )
   const enemyResult = advanceEnemies(
     playerResult.enemies,
     playerResult.player,
-    state.selectedMark === 'charged-retaliation',
+    state.selectedMarks.length > 0 ? state.selectedMarks : state.selectedMark === null ? [] : [state.selectedMark],
   )
   const events: GameEvent[] = [...playerResult.events, ...enemyResult.events]
 
@@ -140,28 +162,23 @@ export function tick(state: GameState, input: TickInput): GameState {
   }
 
   if (allDefeated(enemyResult.enemies)) {
-    if (state.phase === 'encounter1') {
-      return {
-        ...state,
-        tick: state.tick + 1,
-        phase: 'draft',
-        player: enemyResult.player,
-        enemies: enemyResult.enemies,
-        previousInput: input,
-        events: [...events, { type: 'encounterCleared', encounter: 'z1-e1' }, { type: 'draftOffered' }],
-      }
+    if (state.phase === 'boss') {
+      return { ...state, tick: state.tick + 1, phase: 'victory', player: enemyResult.player, enemies: enemyResult.enemies, previousInput: input, events: [...events, { type: 'victory' }] }
     }
-    // 遭遇 2（本切片範圍內戰區一的最後一場）清空 = 戰區清空，套用
-    // content/zones.json 的 zone_clear_heal_hp。
-    const healedHp = Math.min(PLAYER_MAX_HP, enemyResult.player.hp + ZONE_1_CLEAR_HEAL_HP)
+    const encounter = ENCOUNTERS[state.encounterIndex]
+    if (encounter === undefined) throw new Error(`不存在的遭遇索引 ${state.encounterIndex}`)
+    const zoneEnd = state.encounterIndex % 2 === 1
+    const zoneHeal = zoneEnd ? (ZONE_CLEAR_HEALS[Math.floor(state.encounterIndex / 2)] ?? 0) : 0
+    const healedHp = Math.min(PLAYER_MAX_HP, enemyResult.player.hp + zoneHeal)
     return {
       ...state,
       tick: state.tick + 1,
-      phase: 'victory',
+      phase: 'draft',
       player: { ...enemyResult.player, hp: healedHp },
       enemies: enemyResult.enemies,
+      draftOptions: draftOptions(state.seed, state.encounterIndex, state.selectedMarks),
       previousInput: input,
-      events: [...events, { type: 'encounterCleared', encounter: 'z1-e2' }, { type: 'victory' }],
+      events: [...events, { type: 'encounterCleared', encounter: encounter.id }, { type: 'draftOffered' }],
     }
   }
 

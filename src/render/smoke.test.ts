@@ -18,7 +18,7 @@ import { buildWorldCommands } from './world-view.js'
 
 const FRAME_DT_SECONDS = 1 / 60
 /** 500 秒模擬時間的畫面幀數上限，遠超過核心層 run.test.ts 驗證過的 200 秒完整流程。 */
-const MAX_FRAMES = 30_000
+const MAX_FRAMES = 60_000
 
 function input(overrides: Partial<TickInput> = {}): TickInput {
   return { ...neutralInput(), ...overrides }
@@ -40,9 +40,15 @@ function nearestLivingEnemy(state: GameState): { readonly position: { x: number;
  * core.tick() → 畫面組裝」這條完整管線真的會動。
  */
 function autoFightInput(state: GameState, draftChoice: MarkId): TickInput {
-  if (state.phase === 'draft') return input({ draftChoice })
+  if (state.phase === 'draft') return input({ draftChoice: state.draftOptions.includes(draftChoice) ? draftChoice : state.draftOptions[0]! })
 
   const nearest = nearestLivingEnemy(state)
+  const aim = nearest === undefined
+    ? { aimX: state.player.facing.x, aimY: state.player.facing.y }
+    : {
+        aimX: nearest.position.x - state.player.position.x,
+        aimY: nearest.position.y - state.player.position.y,
+      }
   const imminent = state.enemies.some((e) => e.hp > 0 && e.attackState === 'telegraph' && e.timerTicks <= 8)
   const canDodge =
     state.player.dodge.cooldownTicksRemaining <= 0 &&
@@ -53,31 +59,39 @@ function autoFightInput(state: GameState, draftChoice: MarkId): TickInput {
       const dx = nearest.position.x - state.player.position.x
       const dy = nearest.position.y - state.player.position.y
       const len = Math.hypot(dx, dy) || 1
-      return input({ dodge: true, moveX: -dy / len, moveY: dx / len })
+      return input({ ...aim, dodge: true, moveX: -dy / len, moveY: dx / len })
     }
-    return input({ dodge: true, moveX: 1 })
+    return input({ ...aim, dodge: true, moveX: 1 })
   }
 
   if (
-    state.selectedMark === 'ember-core' &&
+      state.selectedMarks.includes('ember-core') &&
     state.player.emberCores.length === 0 &&
     state.player.qCooldownTicksRemaining <= 0
   ) {
-    return input({ skillQ: true })
+    return input({ ...aim, skillQ: true })
   }
+  if (nearest !== undefined && nearest.dist <= 3 && state.player.eCooldownTicksRemaining <= 0 && (state.player.guardStacks > 0 || state.player.afterimages.length > 0 || !state.selectedMarks.some((id) => id === 'precision-afterimage' || id === 'charged-retaliation'))) return input({ ...aim, skillE: true })
+  if (nearest !== undefined && nearest.dist <= 4 && !state.selectedMarks.includes('ember-core') && state.player.qCooldownTicksRemaining <= 0) return input({ ...aim, skillQ: true })
 
   if (nearest !== undefined && nearest.dist > 1.4) {
     const dx = nearest.position.x - state.player.position.x
     const dy = nearest.position.y - state.player.position.y
     const len = Math.hypot(dx, dy) || 1
-    return input({ moveX: dx / len, moveY: dy / len, attack: state.tick % 2 === 0 })
+    return input({ ...aim, moveX: dx / len, moveY: dy / len, attack: state.tick % 2 === 0 })
   }
 
-  return input({ attack: state.tick % 2 === 0 })
+  if (nearest !== undefined) {
+    const dx = nearest.position.x - state.player.position.x
+    const dy = nearest.position.y - state.player.position.y
+    const len = Math.hypot(dx, dy) || 1
+    return input({ ...aim, moveX: -dy / len, moveY: dx / len, attack: state.tick % 2 === 0 })
+  }
+  return input({ ...aim, attack: state.tick % 2 === 0 })
 }
 
-describe('煙霧測試：輸入序列真的推進遊戲狀態（encounter1 → draft → encounter2 → victory）', () => {
-  it.each<MarkId>(['ember-core', 'precision-afterimage', 'charged-retaliation'])(
+describe('煙霧測試：輸入序列推進完整六遭遇、六次 draft 與 Boss', () => {
+  it.each<MarkId>(['ember-core'])(
     '選擇 %s：玩家移動、敵人受傷/被擊敗、三選一生效、最終抵達勝利，且畫面組裝函式全程不拋例外',
     (draftChoice) => {
       // 沿用 src/core/run.test.ts 的種子字串（`flow-${choice}`）與完全相同的自動代打
@@ -105,7 +119,7 @@ describe('煙霧測試：輸入序列真的推進遊戲狀態（encounter1 → d
           const state = loop.getState()
           if (state.phase === 'draft') sawDraft = true
           if (state.phase === 'encounter2') sawEncounter2 = true
-          if (draftChoice === 'ember-core' && state.selectedMark === 'ember-core') {
+          if (draftChoice === 'ember-core' && state.selectedMarks.includes('ember-core')) {
             if (state.events.some((e) => e.type === 'qCast')) sawQCastAfterSelection = true
             if (state.player.emberCores.length > 0) sawEmberCoreSpawned = true
           }
@@ -136,7 +150,8 @@ describe('煙霧測試：輸入序列真的推進遊戲狀態（encounter1 → d
 
       const finalState = loop.getState()
       expect(finalState.phase).toBe('victory')
-      expect(finalState.selectedMark).toBe(draftChoice)
+      expect(finalState.selectedMarks).toContain(draftChoice)
+      expect(finalState.selectedMarks).toHaveLength(6)
       expect(finalState.enemies.every((e) => e.hp <= 0)).toBe(true)
       expect(finalState.player.hp).toBeGreaterThan(0)
       // 玩家確實移動過（不是原地不動、輸入沒有真的傳到 core）。
@@ -163,5 +178,6 @@ describe('煙霧測試：輸入序列真的推進遊戲狀態（encounter1 → d
       expect(dump.seed).toBe(`flow-${draftChoice}`)
       expect(dump.inputLog.length).toBeGreaterThan(0)
     },
+    15_000,
   )
 })

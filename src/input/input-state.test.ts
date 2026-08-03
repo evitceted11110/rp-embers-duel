@@ -55,9 +55,9 @@ describe('assembleTickInput', () => {
   it('輸出的形狀與 core 的 TickInput 完全一致（欄位齊備、類型正確）', () => {
     const held = new Set(['KeyW', 'Mouse0', 'Space'])
     const states = computeActionStates(held, bindings, config)
-    const result = assembleTickInput(states, 'encounter1', null, false)
+    const result = assembleTickInput(states, 'encounter1', null, false, { x: 9, y: -4 })
     expect(Object.keys(result).sort()).toEqual(Object.keys(neutralInput()).sort())
-    expect(result).toMatchObject({ moveX: 0, moveY: -1, attack: true, dodge: true, skillQ: false, skillE: false })
+    expect(result).toMatchObject({ moveX: 0, moveY: -1, aimX: 9, aimY: -4, attack: true, dodge: true, skillQ: false, skillE: false })
   })
 
   it('draftChoice 只在 phase === draft 時透出', () => {

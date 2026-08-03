@@ -60,18 +60,20 @@ function cue(id: string): AudioCue {
 }
 
 function markCue(markId: MarkId): string {
-  if (markId === 'ember-core') return 'mark-selected-ember'
-  if (markId === 'precision-afterimage') return 'mark-selected-shadow'
-  return 'mark-selected-guard'
+  return `mark-selected-${markId}`
 }
 
-function eventCue(event: GameEvent): string {
+function eventCue(event: GameEvent, state: GameState): string {
   switch (event.type) {
     case 'comboHit':
+      if (event.hitIndex === 3 && state.selectedMarks.includes('cracking-flame-combo')) return 'mark-action-cracking-flame'
+      if (event.hitIndex === 1 && state.selectedMarks.includes('pursuit-strike')) return 'mark-action-pursuit'
+      if (event.hitIndex === 1 && state.selectedMarks.includes('bulwark-chain')) return 'mark-action-bulwark'
       return `combo-hit-${event.hitIndex}`
     case 'comboWhiff':
       return 'combo-whiff'
     case 'dodgeStart':
+      if (event.precision && state.selectedMarks.includes('phantom-reset')) return 'mark-action-phantom-reset'
       return event.precision ? 'dodge-precision' : 'dodge'
     case 'coreArmed':
       return 'core-armed'
@@ -80,8 +82,14 @@ function eventCue(event: GameEvent): string {
     case 'afterimageSpawned':
       return 'afterimage-spawned'
     case 'qCast':
+      if (state.selectedMarks.includes('mirror-plating')) return 'mark-action-mirror'
+      if (state.selectedMarks.includes('shadow-harvest')) return 'mark-action-shadow-harvest'
+      if (state.selectedMarks.includes('ember-core')) return 'mark-action-core-place'
       return 'skill-q'
     case 'eCast':
+      if (state.selectedMarks.includes('ember-sacrifice')) return 'mark-action-sacrifice'
+      if (state.selectedMarks.includes('precision-afterimage')) return 'mark-action-afterimage'
+      if (state.selectedMarks.includes('charged-retaliation')) return state.selectedMarks.includes('aftershock-shield') ? 'mark-action-aftershock' : 'mark-action-retaliation'
       return 'skill-e'
     case 'eFailed':
       return 'skill-failed'
@@ -101,7 +109,18 @@ function eventCue(event: GameEvent): string {
       return 'victory'
     case 'defeat':
       return 'defeat'
+    case 'bossPhaseChanged':
+      return `boss-phase-${event.phase}`
+    case 'bossSummoned':
+      return 'boss-summon-resolve'
   }
+}
+
+function enemyCueId(enemy: GameState['enemies'][number], stage: 'telegraph' | 'attack'): string {
+  if (enemy.kind === 'ashen-warlord') return `boss-${enemy.bossAttack ?? 'smash'}-${stage}`
+  if (enemy.kind === 'bulwark-sentinel') return `enemy-${stage}-bulwark`
+  if (enemy.kind === 'shade-skirmisher') return `enemy-${stage}-shade`
+  return `enemy-${stage}-ember`
 }
 
 function enemyTransitionCues(previous: GameState, next: GameState): AudioCue[] {
@@ -111,9 +130,9 @@ function enemyTransitionCues(previous: GameState, next: GameState): AudioCue[] {
     const before = previousById.get(enemy.id)
     if (before === undefined) continue
     if (before.attackState !== 'telegraph' && enemy.attackState === 'telegraph') {
-      cues.push(cue(enemy.kind === 'ember-thrall' ? 'enemy-telegraph-ember' : 'enemy-telegraph-shade'))
+      cues.push(cue(enemyCueId(enemy, 'telegraph')))
     } else if (before.attackState === 'telegraph' && enemy.attackState === 'cooldown') {
-      cues.push(cue(enemy.kind === 'ember-thrall' ? 'enemy-attack-ember' : 'enemy-attack-shade'))
+      cues.push(cue(enemyCueId(before, 'attack')))
     }
   }
   return cues
@@ -123,14 +142,16 @@ function musicLayers(state: GameState): MusicLayers {
   if (state.phase === 'victory' || state.phase === 'defeat') return { base: 0, combat: 0, threat: 0 }
   if (state.phase === 'draft') return { base: 0.22, combat: 0, threat: 0 }
   const threatCount = state.enemies.filter((enemy) => enemy.hp > 0 && enemy.attackState === 'telegraph').length
-  const combat = state.phase === 'encounter2' ? 0.72 : 0.48
+  const combat = state.phase === 'boss' ? 0.9 : state.encounterIndex >= 4 ? 0.8 : state.encounterIndex >= 2 ? 0.68 : state.phase === 'encounter2' ? 0.58 : 0.48
+  const boss = state.enemies.find((enemy) => enemy.kind === 'ashen-warlord')
+  const bossPressure = boss?.bossPhase === 3 ? 0.34 : boss?.bossPhase === 2 ? 0.18 : 0
   const lowHealthPressure = state.player.hp <= 66 ? 0.18 : 0
-  return { base: 0.35, combat, threat: Math.min(0.85, threatCount * 0.28 + lowHealthPressure) }
+  return { base: 0.35, combat, threat: Math.min(0.85, threatCount * 0.28 + lowHealthPressure + bossPressure) }
 }
 
 export function deriveAudioFrame(previous: GameState, next: GameState): AudioFrame {
   return {
-    cues: [...enemyTransitionCues(previous, next), ...next.events.map((event) => cue(eventCue(event)))],
+    cues: [...enemyTransitionCues(previous, next), ...next.events.map((event) => cue(eventCue(event, next)))],
     music: musicLayers(next),
   }
 }

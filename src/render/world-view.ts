@@ -23,6 +23,8 @@ const PLAYER_SIZE_CELLS = { width: 3, height: 4 }
 const ENEMY_SIZE_CELLS: Record<EnemyKind, { readonly width: number; readonly height: number }> = {
   'ember-thrall': { width: 5, height: 3 },
   'shade-skirmisher': { width: 3, height: 5 },
+  'bulwark-sentinel': { width: 6, height: 5 },
+  'ashen-warlord': { width: 8, height: 7 },
 }
 
 /** 已武裝核心的外環：以主體為中心，四個方向各偏移 2 格的強調色像素代表外環。 */

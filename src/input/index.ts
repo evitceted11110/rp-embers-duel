@@ -28,6 +28,7 @@ export {
   type InputWindowLike,
   type KeyCodeEvent,
   type MouseButtonEvent,
+  type PointerMoveEvent,
 } from './controller.js'
 
 export {

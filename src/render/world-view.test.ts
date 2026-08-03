@@ -32,8 +32,8 @@ describe('敵人剪影：矮胖（焰奴）vs 瘦長（影刺客），靠尺寸�
     const commands = buildWorldCommands({
       ...base,
       enemies: [
-        { id: 'thrall', kind: 'ember-thrall', position: { x: 1, y: 0 }, hp: 200, maxHp: 200, attackState: 'approach', timerTicks: 0 },
-        { id: 'skirmisher', kind: 'shade-skirmisher', position: { x: -1, y: 0 }, hp: 145, maxHp: 145, attackState: 'approach', timerTicks: 0 },
+        { id: 'thrall', kind: 'ember-thrall', position: { x: 1, y: 0 }, hp: 200, maxHp: 200, attackState: 'approach', velocity: { x: 0, y: 0 }, locomotion: 'advance', attackRecoveryTicksRemaining: 0, telegraphGeometry: null, timerTicks: 0 },
+        { id: 'skirmisher', kind: 'shade-skirmisher', position: { x: -1, y: 0 }, hp: 145, maxHp: 145, attackState: 'approach', velocity: { x: 0, y: 0 }, locomotion: 'advance', attackRecoveryTicksRemaining: 0, telegraphGeometry: null, timerTicks: 0 },
       ],
     })
 
@@ -49,7 +49,7 @@ describe('敵人剪影：矮胖（焰奴）vs 瘦長（影刺客），靠尺寸�
     const base = createRun('world-view-dead')
     const commands = buildWorldCommands({
       ...base,
-      enemies: [{ id: 'dead', kind: 'ember-thrall', position: { x: 1, y: 0 }, hp: 0, maxHp: 200, attackState: 'approach', timerTicks: 0 }],
+      enemies: [{ id: 'dead', kind: 'ember-thrall', position: { x: 1, y: 0 }, hp: 0, maxHp: 200, attackState: 'approach', velocity: { x: 0, y: 0 }, locomotion: 'idle', attackRecoveryTicksRemaining: 0, telegraphGeometry: null, timerTicks: 0 }],
     })
     expect(commands.some((c) => c.widthCells === 5 && c.heightCells === 3)).toBe(false)
   })

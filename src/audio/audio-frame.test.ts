@@ -43,8 +43,46 @@ describe('deriveAudioFrame', () => {
       'combo-hit-3',
       'dodge-precision',
       'skill-q',
-      'mark-selected-ember',
+      'mark-selected-ember-core',
       'victory',
+    ])
+  })
+
+  it('真實 comboHit 事件把輕擊與重擊映射成可辨識的不同音高、時長與節奏', () => {
+    const previous = state()
+    const light = deriveAudioFrame(previous, state({ events: [{ type: 'comboHit', hitIndex: 1, damage: 8, targetId: 'enemy' }] })).cues[0]!
+    const heavy = deriveAudioFrame(previous, state({ events: [{ type: 'comboHit', hitIndex: 3, damage: 16, targetId: 'enemy' }] })).cues[0]!
+    expect(light.id).toBe('combo-hit-1')
+    expect(heavy.id).toBe('combo-hit-3')
+    expect(heavy.durationMs).toBeGreaterThan(light.durationMs * 2)
+    expect(heavy.rhythmMs.length).toBeGreaterThan(light.rhythmMs.length)
+    expect(heavy.endFrequencyHz).not.toBe(light.endFrequencyHz)
+    expect(heavy.gain).toBeLessThanOrEqual(0.3)
+  })
+
+  it('十二枚印記選取 cue 全部存在且彼此使用不同 id', () => {
+    const marks = [
+      'ember-core', 'cracking-flame-combo', 'twin-core-resonance', 'ember-sacrifice',
+      'precision-afterimage', 'pursuit-strike', 'phantom-reset', 'shadow-harvest',
+      'charged-retaliation', 'aftershock-shield', 'mirror-plating', 'bulwark-chain',
+    ] as const
+    const previous = state()
+    const ids = marks.map((markId) => deriveAudioFrame(previous, state({ events: [{ type: 'markSelected', markId }] })).cues[0]!.id)
+    expect(new Set(ids).size).toBe(12)
+  })
+
+  it('甲衛與 Boss 三攻勢的預兆音訊不共用焰奴或影刺客 cue', () => {
+    const base = state()
+    const source = base.enemies[0]!
+    const enemies = [
+      { ...source, id: 'bulwark', kind: 'bulwark-sentinel' as const, bossAttack: null },
+      { ...source, id: 'smash', kind: 'ashen-warlord' as const, bossAttack: 'smash' as const },
+      { ...source, id: 'charge', kind: 'ashen-warlord' as const, bossAttack: 'charge' as const },
+      { ...source, id: 'summon', kind: 'ashen-warlord' as const, bossAttack: 'summon' as const },
+    ]
+    const next = enemies.map((enemy) => ({ ...enemy, attackState: 'telegraph' as const }))
+    expect(deriveAudioFrame(state({ enemies }), state({ enemies: next })).cues.map((cue) => cue.id)).toEqual([
+      'enemy-telegraph-bulwark', 'boss-smash-telegraph', 'boss-charge-telegraph', 'boss-summon-telegraph',
     ])
   })
 

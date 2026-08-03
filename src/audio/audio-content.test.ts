@@ -21,6 +21,12 @@ describe('audio-events 內容契約', () => {
       'enemy-telegraph-shade',
       'enemy-attack-ember',
       'enemy-attack-shade',
+      'enemy-telegraph-bulwark',
+      'boss-smash-telegraph',
+      'boss-charge-telegraph',
+      'boss-summon-telegraph',
+      'boss-phase-2',
+      'boss-phase-3',
       'combo-hit-1',
       'dodge',
       'skill-q',
@@ -31,5 +37,14 @@ describe('audio-events 內容契約', () => {
     ]) {
       expect(ids.has(id), `缺少 ${id}`).toBe(true)
     }
+  })
+
+  it('十二枚印記都有獨立選取 cue', () => {
+    const ids = new Set(audioEvents.cues.map((cue) => cue.id))
+    for (const mark of [
+      'ember-core', 'cracking-flame-combo', 'twin-core-resonance', 'ember-sacrifice',
+      'precision-afterimage', 'pursuit-strike', 'phantom-reset', 'shadow-harvest',
+      'charged-retaliation', 'aftershock-shield', 'mirror-plating', 'bulwark-chain',
+    ]) expect(ids.has(`mark-selected-${mark}`), `缺少 ${mark} 選取 cue`).toBe(true)
   })
 })

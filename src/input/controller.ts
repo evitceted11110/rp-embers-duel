@@ -14,6 +14,7 @@ import { assembleTickInput, computeActionStates } from './input-state.js'
 
 export type KeyCodeEvent = { readonly code: string }
 export type MouseButtonEvent = { readonly button: number }
+export type PointerMoveEvent = { readonly clientX: number; readonly clientY: number; readonly target: unknown }
 export type ContextMenuEvent = {
   readonly target: unknown
   preventDefault(): void
@@ -27,6 +28,7 @@ export interface InputWindowLike {
   addEventListener(type: 'keyup', listener: (event: KeyCodeEvent) => void): void
   addEventListener(type: 'mousedown', listener: (event: MouseButtonEvent) => void): void
   addEventListener(type: 'mouseup', listener: (event: MouseButtonEvent) => void): void
+  addEventListener(type: 'pointermove', listener: (event: PointerMoveEvent) => void): void
   addEventListener(type: 'blur', listener: () => void): void
   addEventListener(type: 'pointercancel', listener: () => void): void
   addEventListener(type: 'contextmenu', listener: (event: ContextMenuEvent) => void): void
@@ -34,6 +36,7 @@ export interface InputWindowLike {
   removeEventListener(type: 'keyup', listener: (event: KeyCodeEvent) => void): void
   removeEventListener(type: 'mousedown', listener: (event: MouseButtonEvent) => void): void
   removeEventListener(type: 'mouseup', listener: (event: MouseButtonEvent) => void): void
+  removeEventListener(type: 'pointermove', listener: (event: PointerMoveEvent) => void): void
   removeEventListener(type: 'blur', listener: () => void): void
   removeEventListener(type: 'pointercancel', listener: () => void): void
   removeEventListener(type: 'contextmenu', listener: (event: ContextMenuEvent) => void): void
@@ -47,8 +50,7 @@ export interface InputDocumentLike {
 
 /**
  * 快速重開鍵，固定 `KeyR`，刻意不走可重綁系統：`content/bindings.json` 沒有定義
- * 它，因為它不是正式遊戲動作（見 `src/core/README.md` 對 `TickInput.restart`
- * 的警語——這是 Vertical Slice 測試便利機制，不是規格）。不受重綁/衝突規則約束，
+ * 它；這是整局重試入口，不受戰鬥動作的重綁/衝突規則約束，
  * 因此也不會出現在 `BINDINGS_CONFIG.actions` 或重綁 UI 裡。
  */
 export const RESTART_CODE = 'KeyR'
@@ -72,6 +74,8 @@ export type CreateInputControllerOptions = {
   window?: InputWindowLike
   document?: InputDocumentLike
   contextMenuTarget?: ContextMenuTarget
+  resolvePointerAim?(clientX: number, clientY: number): Readonly<{ x: number; y: number }>
+  getFallbackAim?(): Readonly<{ x: number; y: number }>
 }
 
 export function createInputController(options: CreateInputControllerOptions): InputController {
@@ -83,6 +87,7 @@ export function createInputController(options: CreateInputControllerOptions): In
   let bindings = options.bindings
   const heldCodes = new Set<string>()
   let pendingDraftChoice: MarkId | null = null
+  let lastPointerAim: Readonly<{ x: number; y: number }> | null = null
 
   const onKeyDown = (event: KeyCodeEvent): void => {
     heldCodes.add(event.code)
@@ -95,6 +100,11 @@ export function createInputController(options: CreateInputControllerOptions): In
   }
   const onMouseUp = (event: MouseButtonEvent): void => {
     heldCodes.delete(`Mouse${event.button}`)
+  }
+  const onPointerMove = (event: PointerMoveEvent): void => {
+    if (!options.contextMenuTarget?.contains(event.target)) return
+    const aim = options.resolvePointerAim?.(event.clientX, event.clientY)
+    if (aim !== undefined && Number.isFinite(aim.x) && Number.isFinite(aim.y)) lastPointerAim = aim
   }
   // 失焦清空：iframe blur、分頁隱藏（visibilitychange）、pointer cancel 都會讓
   // 玩家「看起來還按著」但其實再也收不到對應 keyup/mouseup 事件——這是正確性
@@ -116,6 +126,7 @@ export function createInputController(options: CreateInputControllerOptions): In
   win.addEventListener('keyup', onKeyUp)
   win.addEventListener('mousedown', onMouseDown)
   win.addEventListener('mouseup', onMouseUp)
+  win.addEventListener('pointermove', onPointerMove)
   win.addEventListener('blur', clearHeldState)
   win.addEventListener('pointercancel', clearHeldState)
   win.addEventListener('contextmenu', onContextMenu)
@@ -125,7 +136,8 @@ export function createInputController(options: CreateInputControllerOptions): In
     buildTickInput(phase: RunPhase): TickInput {
       const actionStates = computeActionStates(heldCodes, bindings, config)
       const restartHeld = heldCodes.has(RESTART_CODE)
-      const result = assembleTickInput(actionStates, phase, pendingDraftChoice, restartHeld)
+      const aim = lastPointerAim ?? options.getFallbackAim?.() ?? { x: 0, y: 0 }
+      const result = assembleTickInput(actionStates, phase, pendingDraftChoice, restartHeld, aim)
       pendingDraftChoice = null
       return result
     },
@@ -143,6 +155,7 @@ export function createInputController(options: CreateInputControllerOptions): In
       win.removeEventListener('keyup', onKeyUp)
       win.removeEventListener('mousedown', onMouseDown)
       win.removeEventListener('mouseup', onMouseUp)
+      win.removeEventListener('pointermove', onPointerMove)
       win.removeEventListener('blur', clearHeldState)
       win.removeEventListener('pointercancel', clearHeldState)
       win.removeEventListener('contextmenu', onContextMenu)

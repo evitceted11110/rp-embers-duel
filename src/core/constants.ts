@@ -50,20 +50,38 @@ export const DODGE_BASE_COOLDOWN_S = 1.1
 export const ENEMY_CYCLE_REFERENCE_S = 1.1
 
 // ---------------------------------------------------------------------------
-// 三段普攻的逐段時間切割（design/spec.md 只給了「合計約 1.1 秒」與三段各自的傷害，
-// 沒有給逐段的 startup/active/連段窗口秒數——把抽象的「連擊循環」模擬展開成真的
-// 即時引擎，這些數字必須有人決定）。
-//
-// 命名對齊 spec.md 原文用語：「連段窗口內輸入，逾時重置為第一段」——下面的
-// ATTACK_COMBO_WINDOW_S 就是這個「連段窗口」，同時兼作後搖（此窗口內可被閃避打斷）。
-// 三段各自 startup+active+連段窗口 = 0.1+0.07+0.2 = 0.37 秒，三段相連 = 1.11 秒，
-// 貼齊 spec.md 的「約 1.1 秒」。此為工程假設，Gate 3 應依真人手感重新校準。
+// 三段普攻的逐段時間切割。startup／active 維持輕、輕、重手感；active 結束後才進入
+// connection window。窗口全段可 buffer，亦可被閃避取消；held 代表持續的後續輸入意圖，
+// 因此第三段窗口結束後會直接 loop 回第一段，不要求新的 rising edge。
 // ---------------------------------------------------------------------------
-export const ATTACK_STARTUP_S = 0.1
-export const ATTACK_ACTIVE_S = 0.07
-export const ATTACK_COMBO_WINDOW_S = 0.2
-/** 普攻命中判定半徑（工程假設，content/*.json 與 spec.md 均未規定確切距離）。 */
-export const ATTACK_RANGE_UNITS = 1.4
+export const ATTACK_STARTUP_TIMES_S: readonly [number, number, number] = [0.05, 0.05, 0.11]
+export const ATTACK_ACTIVE_TIMES_S: readonly [number, number, number] = [0.04, 0.04, 0.08]
+/** 第一段→第二段、第二段→重擊、重擊→第一段 loop 的 active 後連接窗口。 */
+export const COMBO_LINK_WINDOWS_S: readonly [number, number, number] = [0.1, 0.2, 0.2]
+/** Compatibility alias；`recovery` phase 的長度就是 active 後的連接窗口。 */
+export const ATTACK_RECOVERY_S = COMBO_LINK_WINDOWS_S
+/** Compatibility aliases used by older documentation/tests for the first light strike. */
+export const ATTACK_STARTUP_S = ATTACK_STARTUP_TIMES_S[0]
+export const ATTACK_ACTIVE_S = ATTACK_ACTIVE_TIMES_S[0]
+export const ATTACK_COMBO_WINDOW_S = COMBO_LINK_WINDOWS_S[0]
+/** 三段普攻劍光中心線的 physical reach；22px/unit 下為 28.6／31.9／42.9px。 */
+export const ATTACK_RANGES_UNITS: readonly [number, number, number] = [1.3, 1.45, 1.95]
+/** 三段普攻真實扇形半角（弧度）；表現層直接引用，避免假範圍。 */
+export const ATTACK_HALF_ANGLES_RAD: readonly [number, number, number] = [
+  Math.PI * 0.34,
+  Math.PI * 0.3,
+  Math.PI * 0.42,
+]
+/** 8／9／11px 主劍光的可見 stroke 半寬，納入 circle-vs-sector 命中 envelope。 */
+export const ATTACK_STROKE_HALF_WIDTH_UNITS: readonly [number, number, number] = [4 / 22, 4.5 / 22, 5.5 / 22]
+/** 普攻最長命中距離；供接敵與測試腳本使用。 */
+export const ATTACK_RANGE_UNITS = 1.95
+/** 每段 active 起點的向前推進；重擊明顯高於兩段輕擊。 */
+export const COMBO_LUNGE_UNITS: readonly [number, number, number] = [0.04, 0.06, 0.22]
+/** 命中敵人的 deterministic 位移反應。 */
+export const COMBO_RECOIL_UNITS: readonly [number, number, number] = [0.08, 0.11, 0.32]
+/** 命中後敵人短 recovery；重擊明顯更久但不改變 AI 狀態機。 */
+export const COMBO_HIT_RECOVERY_S: readonly [number, number, number] = [0.03, 0.04, 0.09]
 
 // ---------------------------------------------------------------------------
 // 其餘工程假設常數：design/spec.md 的原型模擬（sim/prototype.ts）把整場戰鬥抽象成
@@ -73,8 +91,8 @@ export const ATTACK_RANGE_UNITS = 1.4
 // 標示為「工程假設，非 Designer／Balance Engineer 核定數值，待 Gate 3 真人手感回頭
 // 調整」，避免日後有人誤以為這些是設計已核准的正式數值。
 // ---------------------------------------------------------------------------
-/** 玩家移動速度。介於敵人最快（影刺客 5.0）與最慢（甲衛 1.8）之間，靠近中位數。 */
-export const PLAYER_MOVE_SPEED_UNITS_PER_S = 4.0
+/** 玩家正常速度明確高於最快敵人的持續移動上限 5.0；突進招式不受此上限約束。 */
+export const PLAYER_MOVE_SPEED_UNITS_PER_S = 6.5
 /** 閃避位移距離（直線或彎曲弧線的兩端距離）。 */
 export const DODGE_DISTANCE_UNITS = 3.0
 /** 閃避路徑偵測「範圍內是否存在武裝核心」的半徑（僅餘燼核心 keystone 使用）。 */
@@ -83,6 +101,12 @@ export const CORE_BEND_DETECTION_RADIUS_UNITS = 5.0
 export const CORE_BEND_STRENGTH = 0.5
 /** 基礎版 Q（突進斬）位移距離。 */
 export const Q_LUNGE_DISTANCE_UNITS = 2.0
+/** 基礎 Q 可鎖定的前方距離與半角。 */
+export const BASE_Q_TARGET_RANGE_UNITS = 4.0
+export const BASE_Q_HALF_ANGLE_RAD = Math.PI * 0.3
+/** 基礎 E 的前方半圓有效範圍。 */
+export const BASE_E_RANGE_UNITS = 3.0
+export const BASE_E_HALF_ANGLE_RAD = Math.PI / 2
 /** 基礎版 E 對次要目標的擊退距離。 */
 export const E_KNOCKBACK_DISTANCE_UNITS = 1.0
 /** 蓄能反震 E（反震衝擊）的 AoE 半徑。 */
@@ -93,3 +117,19 @@ export const GUARD_E_RADIUS_UNITS = 3.0
  * 之外開始打你，你的普攻卻打不到牠」這種不合理的僵局。
  */
 export const ENEMY_ENGAGE_RANGE_UNITS = 1.2
+
+// 敵人攻擊幾何。`enemy-geometry.ts`、core 命中判定與 render 全部引用同一組值。
+export const THRALL_CONE_RADIUS_UNITS = 1.65
+export const THRALL_CONE_HALF_ANGLE_RAD = 0.58
+export const SKIRMISHER_LANE_LENGTH_UNITS = 4.2
+export const SKIRMISHER_LANE_HALF_WIDTH_UNITS = 0.48
+export const BULWARK_CONE_RADIUS_UNITS = 2.35
+export const BULWARK_CONE_HALF_ANGLE_RAD = 0.8
+export const BOSS_SMASH_RADIUS_UNITS = 2.15
+export const BOSS_SMASH_FORWARD_OFFSET_UNITS = 0.9
+export const BOSS_CHARGE_LENGTH_UNITS = 6
+export const BOSS_CHARGE_HALF_WIDTH_UNITS = 0.82
+export const BOSS_SUMMON_RADIUS_UNITS = 0.75
+export const BOSS_SUMMON_LATERAL_OFFSET_UNITS = 2.7
+export const ENEMY_SEPARATION_RADIUS_UNITS = 0.9
+export const ENEMY_ATTACK_RECOVERY_S = 0.12

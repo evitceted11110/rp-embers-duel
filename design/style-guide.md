@@ -1,102 +1,88 @@
-# 《餘燼決鬥場》視覺風格指南
+# 《餘燼決鬥場》視覺風格指南 0.1.0
 
-狀態：`implemented`（對應 `design/visual-proposals.md` §7.2 定案的提案一・巨像素微縮舞台）
+狀態：`rework_0.1.0_implemented`
 維護者：Visual Director
 日期：2026-07-31
 
-## 這份文件解決什麼
+> 本節是唯一有效規範。舊「160×90、8 倍巨像素、黑底中央競技場、幾何色塊角色、世界／判定雙層」方案已被 Gate 3 真人試玩否決，狀態為 **superseded**；其歷史規則保留於文末，只供追溯，不再約束實作。
 
-`agents/visual/AGENT.md` 的完成判準是「`style-guide.md` 中的規則具體到可被檢查」。本文件的每一條規則都：
+## Rework 0.1.0：畫布與像素語彙
 
-1. 給出可被檢查的具體數值或型別限制，不使用「深邃神秘」這類無法驗證的形容詞。
-2. 標明**能不能寫成自動檢查**（`可執行 / 不可執行`），呼應工作室憲章「可執行的規範優於文字規範」。
-3. 指到對應的原始碼與測試檔案，讓下一個接手的人（不管是不是同一個模型）能直接去看程式碼確認規則仍然成立。
+- 類型語彙為俯視偏斜視角的即時動作像素 RPG；本作識別是「熄滅王城、缺角勇者、三瓣餘燼印記」，不得臨摹既有作品。
+- 內部畫布固定 **640×360**，CSS 最近鄰縮放至 16:9 viewport；角色基準高 28–40px。禁止把 160×90 或 8 倍巨像素當產品前提。
+- 所有 sprite 腳點、tile 接縫與線段取整；`imageSmoothingEnabled=false`、`image-rendering: pixelated`。
+- 角色腳底對齊 core position；戰鬥映射為每 core unit 22 個內部像素，房間 anchor 為 `(320, 212)`。
+- 地磚基準 20×14px，至少有缺角、短裂紋、灰塵三種座標雜湊變體。接縫僅 1px，不能像移動網格。
+- 後牆高 28–36px並含牆頂與石塊正面；門必須有石框、木板、鐵條與門縫光；火盆必須有三腳架、盆沿與 4 幀火焰；柱必須有底座、柱身、亮側與斷口；裂縫使用分支折線；祭壇使用三層石台與三瓣徽記。
+- phase 舞台表：`encounter1`＝入口前室＋第一戰鬥房，`draft`＝印記祭壇，`encounter2`＝第二戰鬥房，`victory`＝出口長廊；每個舞台都要看見上一／下一節點的門或走廊。
 
-所有規則的真實色值與型別定義只有一份正本：`src/visual/color.ts`、`src/visual/world-grid.ts`、`src/visual/world-layer.ts`、`src/visual/judgment-layer.ts`。本文件描述規則，不重複定義數值。
+## Rework 0.1.0：調色盤
 
-## 1. 解析度與縮放
-
-| 規則 | 可執行？ | 檢查方式 |
+| 語意 | 色值 | 限制 |
 |---|---|---|
-| 世界層內部解析度固定 160×90 | **可執行** | `src/visual/world-grid.ts` 的 `WORLD_GRID_WIDTH`/`WORLD_GRID_HEIGHT` 常數；`world-grid.test.ts` 斷言其值與 `SCREEN_WIDTH === WORLD_GRID_WIDTH * WORLD_SCALE === 1280`、`SCREEN_HEIGHT === 720` |
-| 整數放大倍率固定 8×，兩軸相同（避免非等比縮放形變） | **可執行** | 同上，`WORLD_SCALE === 8` 且用同一個常數乘兩軸，型別上不存在「x 軸倍率」「y 軸倍率」分開設定的介面 |
-| 世界層畫布輸出一律 nearest-neighbor 縮放，不做旋轉、不做非整數縮放 | **不可執行（純文件）** | 這是 canvas 元素的 CSS/`imageSmoothingEnabled` 設定慣例，不是資料層面的東西，無法從 `src/visual/` 的純函式測試中驗證；`src/render/main.ts` 建立世界層 canvas 時必須設定 `image-rendering: pixelated` 與 `ctx.imageSmoothingEnabled = false`，且不得對世界層 canvas 呼叫 `ctx.rotate()` 或非整數 `ctx.scale()`。**待辦**：若之後把世界層畫布的建立搬進 `src/render/`，應在該處補一個「檢查 canvas style 屬性」的整合測試，把這條從不可執行升級為可執行。 |
-| 世界層座標一律量化為整數格點，不允許次像素移動 | **可執行（型別 + 測試雙重）** | `world-grid.ts` 的 `WorldCell` 是品牌型別，只能由 `toWorldCell()` 建構；`worldRect()` 等世界層繪圖 API 只接受 `WorldCell`，傳入未量化的 `{x,y:number}` 物件字面值會被 `tsc` 拒絕（見下方「反向驗證紀錄」）。`world-grid.test.ts` 額外驗證次像素輸入確實被四捨五入為整數。 |
-| 判定／回饋層允許次像素移動與反鋸齒 | **可執行（型別）** | `src/visual/screen-point.ts` 的 `ScreenPoint` 不做整數量化，`judgment-layer.ts` 的繪圖 API 一律吃 `ScreenPoint`／形狀幾何，不吃 `WorldCell` |
+| 地城最暗／焦黑牆 | `#100f16` / `#211f2a` | 只作畫布外與牆縫，不得作整片地面 |
+| 牆頂／石板暗面 | `#393642` / `#45404a` | 環境主色飽和度低於 22% |
+| 石板基色／亮邊 | `#5a5150` / `#746765` | 可玩地面與破角 |
+| 骨白／灰銀 | `#e6dcc4` / `#aeb4b4` | 玩家披風、頭盔、刃口 |
+| 餘燼橘／火芯金 | `#e85d32` / `#ffd37a` | 高飽和總覆蓋率一般幀低於 12% |
+| 血暗紅 | `#7d2d32` | 受傷、封印、焰奴裂光 |
+| 影步紫／冷青 | `#79658e` / `#74d4cf` | 影刺客、殘影、精準提示 |
+| 守勢金白 | `#f2df9b` | 格擋碎光與盾瓣 |
 
-## 2. 色彩系統
+## Rework 0.1.0：角色、動畫與戰鬥回饋
 
-色彩分兩個型別命名空間，定義在 `src/visual/color.ts`：
+- **勇者 24×34px**：缺角灰銀頭盔、暖棕髮、暖白左肩短披風、焦黑短劍、橘紅破損織紋。披風與劍分居兩側，換向時各自換位，不能只鏡像整張圖。
+- **焰奴 30×32px**：寬身駝背、裂煤殼頭、不等高肩、左臂石枷、右手炭錘；預兆時錘頭至少抬高 9px。
+- **影刺客 20×36px**：高窄前傾、裂邊面罩、單條冷青目光、雙短刃、兩條短碎布；預兆時壓低並顯示三段方向線。
+- 勇者有待機、移動、三段不同斬姿、閃避、Q/E、受傷、死亡；兩敵皆有待機、接近、預兆、攻擊、受傷、死亡。一般角色取樣 6–12fps，快速招式 14–16fps。
+- 三段斬弧壽命 120ms：第一段短寬順斬、第二段反向上挑、第三段長亮終結斬。只有 `comboHit` 產生命中星與 3–6 顆方向火花。
+- `playerHit` 使用 1 幀白閃、2px 抖動與暗紅邊緣；`enemyDefeated` 快照保留 45 ticks，依序跪倒／崩散，不能當幀消失。
+- 一般閃避為三個暖灰離散殘像；精準閃避追加冷白收束環；`playerBlocked` 使用金白六角碎光。
+- 焰奴預兆是短寬錘擊落點＋抬錘姿勢；影刺客預兆是三段冷紫方向線＋下蹲姿勢，不能只靠顏色深淺區分。
+- 餘燼核心以殼／裂紋／環形火浪表達未武裝、武裝、引爆；精準殘影以離散分身與交叉刃光；蓄能反震以 0–3 片盾瓣與外翻衝擊環。
 
-- `SchoolColor`（流派色）：`SCHOOL_COLORS.ember` / `.shadow` / `.guard` / `.guardFullStackRim`
-- `EnemyTelegraphColor`（敵人預兆色）：`ENEMY_TELEGRAPH_COLORS.warningRed` / `.chargeBlue` / `.summonGreen` / `.sentinelWhite` / `.assassinDark`
-- `NeutralColor`（場景中性色）：`NEUTRAL_COLORS.obsidianFloor` / `.duskStone`
+## Rework 0.1.0：HUD、卡片、效能
 
-| 規則 | 可執行？ | 檢查方式 |
-|---|---|---|
-| 流派色與敵人預兆色是不同的品牌型別，不得互相傳給對方的 API | **可執行（型別）** | 三個型別各自用 `unique symbol` 品牌；`judgment-layer.ts` 的 `schoolEffect()` 參數型別是 `SchoolColor`，`enemyTelegraph()` 參數型別是 `EnemyTelegraphColor`，把後者傳給前者會被 `tsc` 拒絕（見下方反向驗證） |
-| 五個固定色值不得被美術方向自由調整（語意來自 `content/enemies.json` 與決策紀錄） | **可執行** | `color.test.ts`「固定值回歸」區塊逐一斷言 hex 值 |
-| 背景／環境中性色的 HSL 飽和度上限 20% | **可執行** | `color.ts` 的 `hexToHsl()`；`color.test.ts` 斷言 `obsidianFloor`／`duskStone` 的 `saturation ≤ 0.2`（實測 14.3% / 17.2%） |
-| 裂焰琥珀橙與警戒紅的色相距離 ≥ 20 度（避免玩家把自己的核心特效誤認成敵方紅圈預兆） | **可執行** | `color.ts` 的 `hueDistance()`；`color.test.ts` 斷言距離 ≥ 20（實測 30.93 度） |
-| 守勢鋼青藍的飽和度需低於衝撞藍至少 30 個百分點（用「鋼」的低飽和取代色相區隔——兩者色相本身只差約 16 度，色相區隔不足以避免撞色，飽和度落差才是真正的區隔訊號） | **可執行** | `color.test.ts` 斷言 `chargeBlue.saturation − guard.saturation ≥ 0.3`（實測落差 45.0pp） |
-| 影步藍紫與影刺客暗色（`assassinDark`）不需要額外規則 | 不適用 | 兩者明度相差 57.4 個百分點（68.0% vs 10.6%），已天然區隔，`design/visual-proposals.md` §3 也未列此組合為衝突點 |
+- 左上為缺角頭盔頭像、即時紅條、延遲暗條與數值；右上為房間與目標；下中為攻擊、閃避、Q、E 四槽。
+- 每個行動槽與教學必須顯示 `InputController.getBindings()` 的目前值；冷卻同時使用暗罩與秒數。設定、音量與重綁功能必須保持可用。
+- 三張卡使用相同像素石框，各含印記名、原創徽記、實際按鍵與三步微圖；背景祭壇保持可見，遮罩 alpha 不超過 0.72。
+- 勝利面板只顯示「餘火未熄」、印記、完成時間；敗北只顯示「餘火熄滅」、房間、印記。主按鈕可用 R 重開，不顯示不存在的資源。
+- 單幀重畫一張 640×360 canvas；環境火星 ≤24、戰鬥 VFX primitive ≤80、死亡快照 ≤4。禁止 shadow blur、filter、像素讀回與每幀建立離屏 canvas。
+- 1280×720 與 1920×1080 無捲軸；`pnpm verify` 與既有 bundle budget 必須通過。
 
-### 誠實揭露：守勢鋼青藍 vs 衝撞藍的色相距離其實很近
+## Rework 0.1.0：定向戰鬥補強（2026-07-31）
 
-計算後守勢鋼青藍（`#5C8FAE`，色相 202.7°）與衝撞藍（`#2E6FE6`，色相 218.8°）只相距約 16 度，**不滿足**「色相距離 ≥ 20 度」這條對裂焰有效的規則。這不是實作疏漏，而是`design/visual-proposals.md` §3 本身已經預期到的情況：色相區隔只是雙軸編碼裡的其中一軸，另一軸是「地面 vs 角色」「硬邊 vs 柔邊」的錨點與邊緣風格區隔（見下方〈判定層的雙重區隔〉）。因此這裡改用飽和度落差作為守勢的可檢查區隔訊號，而不是勉強放寬色相門檻去湊出一條實際上守不住的規則。
+- `TickInput.aimX/aimY` 是玩家到游標的 core 世界向量；非零時 core 必須正規化後寫入 `player.facing`。普攻、基礎 Q、基礎 E 的命中候選與畫面提示必須引用同一組 core 距離／角度常數，禁止只旋轉特效不旋轉傷害。
+- 游標進入 stage 前，aim 回退當下 `player.facing`；進入後保留最後方向，所以攻擊改綁鍵盤仍可朝最後游標方向出招。crash dump 必須逐 tick 保存 aim，決定性重播逐欄位一致。
+- 勇者以面向主軸至少分成上、下、左、右四種；每向都要改變頭盔開口、披風位置、身體輪廓與持劍點。待機／移動／三段攻擊／閃避不可退回只做水平鏡像。
+- 活著的敵人朝玩家轉身；死亡快照保存死亡當下朝向。焰奴的炭錘側與影刺客的眼線／雙刃側必須隨方向換位。
+- 普攻範圍扇形只在 `startup`／`active` 顯示：第一段短寬、第二段反向、第三段最長且最厚。半透明填色、外框與中心方向端點至少同時存在，單靠顏色不算合格。
+- 揮劍軌跡壽命最多 13 ticks（130ms），至少有暖色外緣、骨白刃帶、金色刃芯三層及一層衰減殘影；第二段反向繪製，第三段使用最大 core 半徑與最厚線寬。禁止 `filter`、shadow blur 與連續霧帶。
+- `comboHit` 額外顯示交叉刃光、擴張衝擊環、6 顆沿攻擊向量散出的方向碎片及 0.5 秒內消失的傷害數字；`comboWhiff` 只能保留劍路，不得顯示上述命中層。
+- 敵方預兆必須有深色底／高對比外框、0–100% 填色進度、攻擊方向與落點。最後 20% 以線寬或幾何括號交替閃動，不能只換色；焰奴維持寬錘擊橢圓，影刺客維持三段方向線與箭頭落點。
+- Q 顯示從施放起點沿 aim 的真實鎖定距離，並另標出突進距離；E 依實際版型顯示基礎前方半圓、精準殘影落點半徑或蓄能反震全向半徑，不得以同一個裝飾環代替三者。
 
-## 3. 雙層渲染架構
+## Gate 3 核心戰鬥表演修訂（2026-08-03）
 
-世界層（`world-layer.ts`）與判定層（`judgment-layer.ts`）在型別上就是兩個不相容的座標系統，不是命名慣例：
+### 玩家劍光／碰撞 envelope 同步（2026-08-03）
 
-| 規則 | 可執行？ | 檢查方式 |
-|---|---|---|
-| 世界層繪圖 API 只接受 `WorldCell`，不接受任何未經 `toWorldCell()` 量化的座標 | **可執行（型別）** | 見上方「解析度與縮放」表；`world-layer.test.ts` |
-| 判定層繪圖 API 只接受 `ScreenPoint` 或以 `ScreenPoint` 組成的形狀幾何，允許次像素 | **可執行（型別）** | `judgment-layer.ts`、`shapes/*.ts` 全部以 `ScreenPoint` 為座標單位 |
-| 世界層調色盤只能是 `NeutralColor \| SchoolColor`（`WorldColor`），不含敵人預兆色 | **可執行（型別）** | `world-layer.ts` 的 `WorldColor` 型別定義；敵人預兆需要精確幾何（同 120° 扇形在粗網格上會被誤判的理由），固定畫在判定層 |
-| 判定層調色盤是 `SchoolColor \| EnemyTelegraphColor`（`JudgmentColor`） | **可執行（型別）** | `judgment-layer.ts` 的 `JudgmentColor` 型別定義 |
+- `PlayerAttackGeometry.range` 是主劍光中心線的 physical reach，不包含敵人尺寸；base 三段為 1.30／1.45／1.95 units，換算 28.6／31.9／42.9px。外層刃帶維持 8／9／11px，不可縮小來掩蓋判定落差；最外可見半徑因此為 32.6／36.4／48.4px。
+- 劍光 arc、極淡 sector fill（active alpha 0.035）、1px sector edge、startup cue 與 hit collision 必須讀同一份 geometry。render 禁止另寫裂焰 2.2、追擊 2.5、鐵壁 ×1.3；印記顏色只改表現，不改幾何來源。
+- 敵人腳點仍是 sprite 定位點，但碰撞使用與 sprite 體量相符的圓形 hurtbox：焰奴 11px、影刺客約 9.2px、甲衛約 15.8px、Boss 22px。可見刃帶外緣碰到 hurtbox 即可命中；完全離開徑向外緣或角度側邊才 miss。
+- 命中後劍光一律繪製 `VfxState.attack.geometry` 快照，不得用當下 `pursuitTicksRemaining`／`guardStacks` 重算。裂焰扇形主斬與命中後的圓形 secondary splash 是兩個不同 channel，地面燒痕仍只有視覺、不新增持續判定。
 
-### 判定層的雙重區隔（地面 vs 角色、硬邊 vs 柔邊）
+- 普攻必須一眼讀成「輕、輕、重」。第一段用骨白短寬順斬（外緣／刃帶／刃芯 8／5／2px），第二段用餘燼橘反向上挑（9／6／2px），第三段用火芯金最長最寬終結斬（11／7／3px）；三段顯示的扇形直接引用 core range／half-angle，不畫裝飾性假範圍。
+- `comboHit` 分 light／heavy tier。light：接觸十字爆閃半徑 6px、6 顆順攻擊方向碎屑、敵人白閃壓縮／後仰、2 幀 visual hit-stop、1px shake。heavy：爆閃半徑 10px、10 顆碎屑、更大擴張環與壓縮後仰、3 幀 visual hit-stop、2px shake。VFX 凍結不得停止 core accumulator 或 input sampling。
+- core arena x = −11.2..11.2、y = −5.5..5.0 映射為 canvas x = 73.6..566.4、y = 91..322。角色腳點、敵人腳點與所有世界 VFX 都使用 `worldToDungeon()`；HUD 是 overlay，不得縮小或改寫可走區。英雄 24×34px 在四邊 clamp 後必須完整留在 640×360 畫布。
 
-`design/visual-proposals.md` §3 規則 2 要求敵人預兆固定「投影在地面的硬邊幾何」、玩家流派特效固定「附著在角色本體或武器上」。這條規則沒有留給呼叫端自由選擇——`judgment-layer.ts` 只暴露兩個建構子：
+- 敵方預兆只能繪製 `EnemyState.telegraphGeometry`；禁止用當前玩家座標重新推導方向或落點。cone、lane、circle、summon circles 的尺寸直接來自 core 公開常數，render 不保留鏡射數值。
+- 焰奴、影刺客、甲衛與 Boss 都必須依 `velocity`／`locomotion` 顯示動態移動。`advance` 是有腳步交替的前進，`strafe` 使用側身滑步，`retreat` 保持朝向威脅後撤，`dash` 顯示三個離散殘影，`recover` 顯示攻擊後重心回收；不得只讓靜態 sprite 平移。
+- 移動時每 80–120ms 可出現 1–2 顆低對比腳步塵；影刺客／Boss charge 的突進殘影由實際 core 起訖點保存 180ms，不可用預兆線假裝已移動。
+- 三段 held 即時總長 0.87s（0.19／0.29／0.39s）。startup 顯示攻擊範圍，active 顯示刃光與命中；active 結束後的 connection/recovery window 依序為 0.10／0.20／0.20s，顯示收勢並接受 rising-edge buffer 或 held 意圖。第三段後 held 直接回第一段；放開則在 0.20s loop 窗口逾時後回 idle pose。
+- 敵人彼此分離是 core 座標事實，render 不得額外偏移 sprite 來掩蓋重疊；畫面腳點必須持續對齊實際 position。
 
-- `enemyTelegraph(geometry, color: EnemyTelegraphColor)` → 固定回傳 `anchor: 'ground', edge: 'hard'`
-- `schoolEffect(geometry, color: SchoolColor)` → 固定回傳 `anchor: 'character', edge: 'soft'`
+---
 
-沒有第三個「自訂 anchor/edge」的建構子，因此不可能組出「敵人預兆但用柔邊」或「流派特效但錨在地面」這種違規組合。
+## Superseded：舊巨像素方案（只供歷史追溯）
 
-| 規則 | 可執行？ | 檢查方式 |
-|---|---|---|
-| 敵人預兆固定 `anchor='ground'`、`edge='hard'`，只能用 `EnemyTelegraphColor` | **可執行（型別 + 測試）** | `judgment-layer.ts` 的 `enemyTelegraph()`；`judgment-layer.test.ts` |
-| 流派特效固定 `anchor='character'`、`edge='soft'`，只能用 `SchoolColor` | **可執行（型別 + 測試）** | `judgment-layer.ts` 的 `schoolEffect()`；`judgment-layer.test.ts` |
-
-## 4. 形狀語彙（提案一 §形狀語彙，四種皆可獨立測試）
-
-| 形狀 | 對應模組 | 幾何正確性規則 | 可執行？ |
-|---|---|---|---|
-| 弧線殘跡（餘燼核心閃避路徑） | `src/visual/shapes/arc-trail.ts` | 無武裝核心時取樣點與起訖點共線（跨積為 0）；有核心時曲線中點必須比直線中點更靠近 `bendTarget`；起訖點精確等於輸入值 | **可執行**，見 `arc-trail.test.ts` |
-| 120° 扇形（裂焰連擊） | `src/visual/shapes/cone.ts` | 邊界角度（`facing ± half`）本身算在扇形內；超出邊界即使只有 0.001 度也判定為外；面朝角度跨越 0/360 環狀邊界時仍正確 | **可執行**，見 `cone.test.ts`；已完成反向驗證（見下方） |
-| 殘影（精準殘影／影步） | `src/visual/shapes/afterimage.ts` | 不透明度隨經過時間連續衰減：`t=0` 時為 1，`t=durationS` 時為 0，中點為線性內插值，且全程單調遞減 | **可執行**，見 `afterimage.test.ts` |
-| 格擋尾段光環（蓄能反震 0.15 秒） | `src/visual/shapes/parry-halo.ts` | 三段式演出「亮起→撐開→收回」：起訖時刻半徑均為基準值 1，撐開階段結尾（2/3 時刻）半徑達峰值 1.6；中段半徑嚴格大於起訖值，證明真的有「外擴一圈再收回」 | **可執行**，見 `parry-halo.test.ts` |
-
-## 5. 視覺隨機
-
-| 規則 | 可執行？ | 檢查方式 |
-|---|---|---|
-| 視覺隨機一律用 `@rogue-paradise/rng` 的 `fork()` 子 stream，禁止 `Math.random()` | **可執行（ESLint + 測試雙重）** | `eslint.config.js` 的 `no-restricted-properties`（工作室硬紅線，`pnpm lint` 擋）；`src/visual/particles.ts` 的 `shatterParticles()` 吃呼叫端已 fork 好的 `Rng`；`particles.test.ts` 驗證同 seed 的兩個獨立 fork 產生完全相同序列（決定性），不同 seed 產生不同序列 |
-
-## 6. 反向驗證紀錄
-
-以下規則已依工作室慣例（`knowledge/verifying-executable-rules.md`）故意違反過一次，確認真的會被擋下，再改回正確版本。完整指令輸出見 `/Users/samuellin/RogueParadise/.superpowers/sdd/embers-duel-visual-impl-report.md`：
-
-1. **世界層拒絕次像素座標**：故意用 `worldRect({x:1.5,y:2.5}, ...)`（未經 `toWorldCell()`）呼叫世界層 API → `tsc` 報 `TS2345: Property '[worldCellBrand]' is missing`。
-2. **流派色／敵人預兆色不得互換**：故意把 `ENEMY_TELEGRAPH_COLORS.warningRed` 傳給 `schoolEffect()` → `tsc` 報 `TS2345: Property '[schoolColorBrand]' is missing`。
-3. **禁止 `Math.random()`**：故意在 `particles.ts` 加入 `Math.random()` → `pnpm lint` 報 `no-restricted-properties` 錯誤。
-4. **背景飽和度上限 20%**：故意把 `obsidianFloor` 改成 `#FF0000`（飽和度 100%）→ `color.test.ts` 兩條斷言失敗（固定值回歸、飽和度上限）。
-5. **120° 扇形角度邊界**：故意把 `isAngleWithinCone` 的 half-angle 算錯（誤用整個 `totalAngleDegrees` 而非其一半）→ `cone.test.ts` 兩條測試失敗，證明測試真的在檢查角度數學而非恆真斷言。
-
-## 7. 尚未涵蓋、留給後續的部分
-
-- HUD／UI 文字色（`theme.ts` 的 `foreground`）不在本次決策範圍內，維持既有佔位值，待後續 UI 規格定案再補規則。
-- 世界層 canvas 的 CSS `image-rendering: pixelated` 與 `imageSmoothingEnabled = false` 設定，目前只有文件規則、沒有自動檢查（見上方「解析度與縮放」表的待辦），因為世界層 canvas 尚未在 `src/render/` 建立。等 canvas 建立程式碼落地後，應補一條檢查其 style/屬性的整合測試。
-- 敵人三種輪廓比例（焰奴矮胖、影刺客瘦長、甲衛方正厚重）與角色剪影造型本身，屬於世界層繪製內容而非規則系統，本次未實作角色/敵人的具體剪影繪製，留給後續依 `content/enemies.json` 逐一實作。
+舊方案已由本文件完全取代；歷史實作仍可由 Git 追溯。

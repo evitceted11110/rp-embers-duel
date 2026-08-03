@@ -1,24 +1,22 @@
 # `src/core/` 給渲染層的介面說明
 
-給下一位接手 `src/render/main.ts` 的 Gameplay Engineer。本檔說明：怎麼餵輸入、怎麼讀狀態、哪些狀態該對應哪些視覺表現，以及幾個容易踩的坑。
+給接手完整候選版的 Gameplay Engineer。本檔說明：怎麼餵輸入、怎麼讀狀態、哪些狀態該對應哪些視覺表現，以及幾個容易踩的坑。
 
-`src/core/` 完全不認識 DOM／螢幕／像素格點；它輸出的座標是遊戲世界的邏輯浮點座標。把邏輯座標映射到 `src/visual/world-grid.ts` 的 `WorldCell`（160×90 整數格點、8× 放大）是渲染層的職責，不是 core 的職責。
+`src/core/` 完全不認識 DOM／螢幕／像素格點；它輸出的座標是遊戲世界的邏輯浮點座標。目前產品渲染使用 `src/visual/dungeon-art.ts` 的 640×360 程序式像素舞台；座標映射仍完全是渲染層職責。
 
-## 1. 範圍：這個切片做了什麼、沒做什麼
+## 1. 完整候選版範圍
 
-- 一個戰區（`content/zones.json` 的 `zone-1`）、兩場遭遇戰：`z1-e1`（焰奴×1）→ `z1-e2`（焰奴×2＋影刺客×1）。
-- 三選一**只出現一次**，位置在**遭遇 1 與遭遇 2 之間**（不是兩場都打完才選）——這樣玩家才能在遭遇 2 裡實際用到選到的印記，這是本切片存在的意義。三選一固定就是三枚 keystone：`ember-core` / `precision-afterimage` / `charged-retaliation`，一枚一個流派，一局只會生效一枚。
-- 移動、三段連擊（可打斷）、閃避（無敵幀＋精準閃避窗＋三枚 keystone 各自的幾何改寫）、Q、E。
-- **沒做**：戰區二／三、Boss、其餘 9 枚非 keystone 印記、meta 進度、雙核共振（需要選了餘燼核心後才可能出現的追加印記，本切片三選一只有三枚 keystone 本身，選完就定型，不會再抽第二次）。
-- 沒選任何印記時（遭遇 1 全程、以及測試時故意不選），Q/E 一律是 spec.md〈玩家角色〉描述的基礎版（Q＝突進斬、E＝破隙衝擊）。
+- 三戰區共六場一般遭遇：`encounter1` 至 `encounter6`，依序引入焰奴、影刺客與甲衛。
+- 每場一般遭遇後進入一次 `draft`，共六次。`state.draftOptions` 是當下唯一合法選項；core 會排除已選、前置未滿足與 slot 衝突的印記。
+- 第六次選擇後進入 `boss`。灰燼君主有三個 HP 階段與 `smash`／`charge`／`summon` 三種攻勢，階段切換與召喚透過事件公開。
+- 十二枚印記全部實作。累積構築以 `selectedMarks` 為準；`selectedMark` 只代表最近一次選擇，渲染層不可把它誤當成完整 build。
+- 沒選任何印記時，Q/E 是基礎版突進斬／破隙衝擊。
 
 ### ⚠️ 遭遇 1 與遭遇 2 不是乾淨的 A/B 對照組
 
 遭遇 2（焰奴×2＋影刺客×1）本來就比遭遇 1（焰奴×1）難——敵人數量與種類都變了。玩家在遭遇 2 感覺「變強／變不一樣」，一部分來自敵人變多、不是全部歸功於三選一選到的印記。Gate 3 試玩蒐集回饋時請留意這一點，不要把「感覺變強了」直接當成「印記改寫證明有效」的證據；印記改寫的證明應該看**動作幾何本身有沒有變**（閃避路徑形狀、E 的目的地、Q 的行為），不是看輸出數字。
 
-### ⚠️ 快速重開是切片專用的測試便利機制，不是正式功能
-
-`TickInput.restart` 會讓 `tick()` 立刻回到全新的遭遇 1（`createRun(state.seed)`），清空已選印記。這是為了讓 Gate 3 試玩者能在幾分鐘內把三條流派都摸過一輪，**不是正式遊戲設計**——正式版沒有「三選一只能選一次」這種限制。如果之後有人想把這個接進正式的重玩/進度系統，請先回頭確認這條備註，不要把它當成既有規格保留下來。
+`TickInput.restart` 會從任何階段回到同 seed 的全新遭遇 1，清空完整 build；這是候選版的快速重試入口。
 
 ## 2. 怎麼餵輸入
 
@@ -48,6 +46,8 @@ function onFrame(dtSeconds: number, keyboardState: KeyboardState) {
 type TickInput = {
   moveX: number       // -1..1，同時按 A 與 D 應為 0
   moveY: number
+  aimX: number        // 玩家→游標的 core 世界向量；core 會正規化
+  aimY: number        // (0, 0) 代表維持目前 facing
   attack: boolean      // 對應 content/bindings.json 的 attack（預設 Mouse0）
   dodge: boolean       // 對應 dodge（預設 Space）
   skillQ: boolean      // 對應 skillQ（預設 KeyQ）
@@ -59,7 +59,7 @@ type TickInput = {
 
 判定鍵位一律用 `KeyboardEvent.code`（見 `content/bindings.json` 與 spec.md〈品味準則張力〉一節），**不要用 `event.key`**——這是渲染層鍵盤事件轉換的職責，core 完全不碰 DOM，看不到 `KeyboardEvent`。
 
-三選一畫面：`state.phase === 'draft'` 時，渲染層畫三張卡片（餘燼核心／精準殘影／蓄能反震），玩家點選其中一張時，接下來一個 tick 把對應的 `draftChoice` 設為那個 `MarkId`（其餘 tick 維持 `null`）。
+三選一畫面：`state.phase === 'draft'` 時，渲染層只能畫 `state.draftOptions` 的三張合法卡片。玩家點選其中一張時，下一個 tick 把對應 `MarkId` 放進 `draftChoice`；core 仍會拒絕不在選項中的值。
 
 ## 3. 怎麼讀狀態
 
@@ -67,23 +67,27 @@ type TickInput = {
 
 | 欄位 | 說明 |
 |---|---|
-| `phase` | `'encounter1' \| 'draft' \| 'encounter2' \| 'victory' \| 'defeat'` |
-| `selectedMark` | 三選一結果，`null` 直到玩家選定 |
+| `phase` | `'encounter1'..'encounter6' \| 'draft' \| 'boss' \| 'victory' \| 'defeat'` |
+| `encounterIndex` | 0..5 為一般遭遇，6 為 Boss；draft 時保留剛完成的遭遇索引 |
+| `selectedMarks` / `selectedMark` | 完整累積 build／最近一次選擇 |
+| `draftOptions` | 本次 draft 的合法三選一；非 draft 為空 |
 | `player.position` / `player.facing` | 世界座標（浮點數），facing 是正規化向量 |
 | `player.hp` | 0–220 |
-| `player.combo` | `{ hitIndex: 0\|1\|2\|3, phase: 'idle'\|'startup'\|'active'\|'recovery', phaseTicksRemaining }` |
+| `player.combo` | `{ hitIndex: 0\|1\|2\|3, phase: 'idle'\|'startup'\|'active'\|'recovery', phaseTicksRemaining, attackQueued? }`；`recovery` 是 active 後的連接窗口，不包含 startup／active |
 | `player.dodge` | 見第 4 節逐項對應 |
-| `player.emberCores` / `player.afterimages` / `player.guardStacks` | 三枚 keystone 各自的資源狀態，只有對應印記被選中時才會有非空值 |
-| `enemies` | 每隻敵人的 `position`／`hp`／`attackState`（`'approach'\|'cooldown'\|'telegraph'`）／`timerTicks` |
+| `player.emberCores` / `player.afterimages` / `player.guardStacks` | 三學派基礎資源；追加印記會改寫其容量、消耗、連鎖與回饋 |
+| `enemies` | 每隻敵人的 `kind`／`position`／`hp`／`attackState`／`timerTicks`；Boss 另有 `bossPhase`／`bossAttack` |
 | `events` | **只有這一 tick 發生的事**，不累積。渲染層／音訊層要在每次 `tick()` 呼叫後立刻消費，錯過就沒了 |
 
 ## 4. 哪些狀態對應哪些視覺表現
 
-這是三枚 keystone「改寫動作幾何」主張的驗收依據，逐項列出 core 狀態怎麼餵給 `src/visual/`：
+以下是十二枚印記「改寫動作幾何」的驗收依據，逐項列出 core 狀態怎麼餵給 `src/visual/`：
 
 ### 通用（三條流派共用）
 
-- **三段連擊**：`player.combo.phase === 'active'` 時是揮擊命中判定的瞬間，對應的 `events` 會有 `{ type: 'comboHit', hitIndex, damage, targetId }`；`hitIndex===3` 時是 finisher。三枚 keystone 都沒有改寫普攻本身，三條流派的普攻演出應該完全一樣。
+- **滑鼠瞄準與三段連擊**：非零 `aimX/aimY` 會正規化成 `player.facing`。`createPlayerAttackGeometry()` 是 base 三段、裂焰連擊、突進追擊與鐵壁連動的唯一主斬幾何來源；回傳 `PlayerAttackGeometry`（origin／facing／physical range／half-angle／hit index／stroke half-width／target hurtbox rule／variant）。startup 由 helper 產生；active、`comboHit`／`comboWhiff` 與 `VfxState.attack` 保存同一快照，禁止資源消耗後重算。
+- **敵人 hurtbox 與主斬相交**：`enemyHurtboxRadius(kind)` 固定回傳焰奴 0.50、影刺客 0.42、甲衛 0.72、Boss 1.00 units。`playerAttackHitsCircle()`／`circleIntersectsSector()` 同時處理扇形徑向外緣與兩條角度側邊，並把可見主刃帶半寬納入；這是「敵人身體與劍光接觸」而非要求敵人腳點進扇形。裂焰的 secondary splash 是主斬命中後的獨立圓形規則。
+- **連接窗口與 buffer**：`COMBO_LINK_WINDOWS_S` 是唯一時序來源，依序為 0.10／0.20／0.20 秒。startup／active 尾端或 `recovery` 中的 rising edge 會設為 `attackQueued`；held 則持續代表後續意圖。`phaseTicksRemaining === 1` 的 tick 會先取樣輸入再結算，因此仍是最後合法 tick；沒有輸入時該 tick 結束後回 idle，下一 tick 再按只會從第一段開始。第三段使用同一規則 loop 回第一段。
 - **閃避無敵幀**：`player.dodge.active && player.dodge.invincibilityTicksRemaining > 0`。
 - **精準閃避（三條流派通用判定，只有影步真的利用它）**：`events` 出現 `{ type: 'dodgeStart', precision: true, ... }` 時播放精準閃避的音效/定格（design/spec.md 五分鐘教學 1:40–2:30 提到的「成功時有定格、殘影與清楚音效」）。
 
@@ -107,12 +111,25 @@ type TickInput = {
 - **格擋尾段**：`player.dodge.parryTailActive` 為真時，護環應該短暫變亮（`events` 的 `{ type: 'playerBlocked' }` 是真的擋下一次攻擊的那一 tick，`parryTailActive` 本身涵蓋整段 0.15 秒窗口，兩者都值得表現）。
 - **E＝反震衝擊**：`events` 的 `{ type: 'eCast' }` 搭配 `player.guardStacks` 歸零，代表這一 tick 護環全部爆發成衝擊波。
 
+### 九枚追加印記
+
+- 裂焰連擊：第三斬 `comboHit` 搭配完整 build，畫 120° 火扇與燒痕。
+- 雙核共振：兩顆 `emberCores` 同時武裝時畫連線；同 tick 可出現兩個 `coreDetonated`。
+- 餘燼獻祭：E 會讓所有武裝核心各送出 `coreDetonated`，不需要玩家位移。
+- 突進追擊：`pursuitTicksRemaining > 0` 是反擊窗口；第一斬使用窄角突刺。
+- 虛影重置：精準 `dodgeStart` 後冷卻立即為 0，HUD 與腳邊須閃回 READY。
+- 暗影收割：Q 搭配所有現存 `afterimages` 顯示同步爆裂。
+- 餘波護盾：三層時護環加金邊；`aftershockBonusReady` 表示下一次 E 已強化。
+- 鏡甲反傷：`mirrorStanceTicksRemaining > 0` 畫面向盾；`playerBlocked` 觸發反光。
+- 鐵壁連動：兩層以上的第一斬畫擴大淡藍殘影。
+
 ## 5. 工程假設常數（不是 Designer／Balance Engineer 核定值）
 
 `design/spec.md` 的原型模擬（`sim/prototype.ts`）把整場戰鬥抽象成「連擊循環」計數，完全沒有座標、沒有移動速度、沒有攻擊/閃避距離。做一個真的有幾何形狀的即時引擎，這些數字必須有人先決定一個合理值——全部集中在 `src/core/constants.ts`，每個都有註解說明選擇理由，包含（但不限於）：
 
-- `PLAYER_MOVE_SPEED_UNITS_PER_S`、`DODGE_DISTANCE_UNITS`、`ATTACK_RANGE_UNITS`
-- 三段連擊逐段的 `ATTACK_STARTUP_S` / `ATTACK_ACTIVE_S` / `ATTACK_COMBO_WINDOW_S`
+- `PLAYER_MOVE_SPEED_UNITS_PER_S`（6.5，必須高於所有敵人持續 steering 上限）、`DODGE_DISTANCE_UNITS`、`ATTACK_RANGES_UNITS`／`ATTACK_HALF_ANGLES_RAD`／`ATTACK_STROKE_HALF_WIDTH_UNITS`
+- 輕／輕／重逐段的 `ATTACK_STARTUP_TIMES_S`／`ATTACK_ACTIVE_TIMES_S`，active 後連接窗口 `COMBO_LINK_WINDOWS_S`（`ATTACK_RECOVERY_S` 僅為相容別名），以及 `COMBO_LUNGE_UNITS`／`COMBO_RECOIL_UNITS`
+- `arena.ts` 公開 `ARENA_BOUNDS`／`clampToArena()`／`isInsideArena()`；所有玩家與敵人位移路徑每 tick 都以此為世界場界，render 只做同源座標映射
 - `CORE_BEND_DETECTION_RADIUS_UNITS` / `CORE_BEND_STRENGTH`（餘燼核心彎曲弧線的偵測半徑與彎曲強度）
 - `ENEMY_ENGAGE_RANGE_UNITS`、`GUARD_E_RADIUS_UNITS`、`Q_LUNGE_DISTANCE_UNITS`、`E_KNOCKBACK_DISTANCE_UNITS`
 
@@ -138,4 +155,4 @@ const dump: CrashDump = recorder.dump() // { seed, inputLog }，可以 JSON.stri
 // 回報這個 dump，任何人都能用 replay(dump) 重現出事當下的最終狀態
 ```
 
-`CrashDump` 是純 JSON 資料（`seed` + `TickInput[]`），因為 `tick()` 本身完全不消耗任何隨機性（唯一用到 RNG 的地方是 `createRun()`／進入 `encounter2` 時的敵人初始攻擊時機抖動，且只在建立當下用一次，結果立刻烘焙成普通數字），`replay()` 保證逐 tick 重現出完全相同的狀態。見 `src/core/determinism.test.ts` 與 `src/core/crash-dump.test.ts`。
+`CrashDump` 是純 JSON 資料（`seed` + `TickInput[]`）。每場遭遇與 Boss 只在生成當下使用各自 fork 的 RNG 並把結果烘焙成普通數字；`tick()` 不保存 mutable RNG，因此 `replay()` 保證逐 tick 重現相同狀態。

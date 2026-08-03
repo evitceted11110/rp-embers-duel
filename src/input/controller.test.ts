@@ -8,6 +8,7 @@ import {
   type InputWindowLike,
   type KeyCodeEvent,
   type MouseButtonEvent,
+  type PointerMoveEvent,
 } from './controller.js'
 
 /**
@@ -23,6 +24,7 @@ class FakeWindow implements InputWindowLike {
   addEventListener(type: 'keyup', listener: (event: KeyCodeEvent) => void): void
   addEventListener(type: 'mousedown', listener: (event: MouseButtonEvent) => void): void
   addEventListener(type: 'mouseup', listener: (event: MouseButtonEvent) => void): void
+  addEventListener(type: 'pointermove', listener: (event: PointerMoveEvent) => void): void
   addEventListener(type: 'blur', listener: () => void): void
   addEventListener(type: 'pointercancel', listener: () => void): void
   addEventListener(type: 'contextmenu', listener: (event: ContextMenuEvent) => void): void
@@ -36,6 +38,7 @@ class FakeWindow implements InputWindowLike {
   removeEventListener(type: 'keyup', listener: (event: KeyCodeEvent) => void): void
   removeEventListener(type: 'mousedown', listener: (event: MouseButtonEvent) => void): void
   removeEventListener(type: 'mouseup', listener: (event: MouseButtonEvent) => void): void
+  removeEventListener(type: 'pointermove', listener: (event: PointerMoveEvent) => void): void
   removeEventListener(type: 'blur', listener: () => void): void
   removeEventListener(type: 'pointercancel', listener: () => void): void
   removeEventListener(type: 'contextmenu', listener: (event: ContextMenuEvent) => void): void
@@ -63,6 +66,10 @@ class FakeWindow implements InputWindowLike {
 
   dispatchMouseUp(event: MouseButtonEvent): void {
     this.emit('mouseup', event)
+  }
+
+  dispatchPointerMove(event: PointerMoveEvent): void {
+    this.emit('pointermove', event)
   }
 
   dispatchBlur(): void {
@@ -129,6 +136,28 @@ describe('鍵盤/滑鼠 held 狀態 -> TickInput', () => {
     expect(controller.buildTickInput('encounter1').attack).toBe(true)
     window.dispatchMouseUp({ button: 0 })
     expect(controller.buildTickInput('encounter1').attack).toBe(false)
+  })
+
+  it('舞台內 pointermove 經 callback 轉成 aim，離開後仍保留最後游標方向供鍵盤攻擊', () => {
+    const window = new FakeWindow()
+    const document = new FakeDocument()
+    const stage = { contains: (target: unknown): boolean => target === 'stage' }
+    const controller = createInputController({
+      bindings: defaultBindingsState(BINDINGS_CONFIG),
+      window,
+      document,
+      contextMenuTarget: stage,
+      resolvePointerAim: (clientX, clientY) => ({ x: clientX - 20, y: clientY - 10 }),
+      getFallbackAim: () => ({ x: -1, y: 0 }),
+    })
+
+    expect(controller.buildTickInput('encounter1')).toMatchObject({ aimX: -1, aimY: 0 })
+    window.dispatchPointerMove({ clientX: 35, clientY: 4, target: 'stage' })
+    expect(controller.buildTickInput('encounter1')).toMatchObject({ aimX: 15, aimY: -6 })
+    window.dispatchPointerMove({ clientX: 99, clientY: 99, target: 'settings' })
+    window.dispatchKeyDown({ code: 'KeyF' })
+    expect(controller.buildTickInput('encounter1')).toMatchObject({ aimX: 15, aimY: -6 })
+    controller.dispose()
   })
 })
 
@@ -254,7 +283,7 @@ describe('dispose：移除全部事件監聽器', () => {
   it('dispose 後 window/document 上不再殘留任何監聽器', () => {
     const { window, document, controller } = setup()
     controller.dispose()
-    for (const type of ['keydown', 'keyup', 'mousedown', 'mouseup', 'blur', 'pointercancel', 'contextmenu']) {
+    for (const type of ['keydown', 'keyup', 'mousedown', 'mouseup', 'pointermove', 'blur', 'pointercancel', 'contextmenu']) {
       expect(window.listenerCount(type)).toBe(0)
     }
     expect(document.listenerCount()).toBe(0)

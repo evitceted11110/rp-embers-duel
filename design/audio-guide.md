@@ -1,6 +1,6 @@
 # 《餘燼決鬥場》音訊規範
 
-狀態：Vertical Slice 已實作
+狀態：1.0.0-rc.1 完整候選版已實作；瀏覽器盲測待執行
 日期：2026-07-31
 
 ## 方向
@@ -10,8 +10,8 @@
 配樂不是一首循環音檔，而是三個可連續混合的脈衝聲部：
 
 - `base`：55Hz 三角波、2Hz 呼吸脈衝；維持場地存在感。
-- `combat`：110Hz 鋸齒波、4Hz 行進脈衝；遭遇二比遭遇一更強。
-- `threat`：220Hz 方波、8Hz 警戒脈衝；依同時預兆敵人數與低生命狀態淡入。
+- `combat`：110Hz 鋸齒波、4Hz 行進脈衝；依戰區與 Boss 戰逐步增強。
+- `threat`：220Hz 方波、8Hz 警戒脈衝；依同時預兆敵人數、低生命與 Boss 階段淡入。
 
 聲部以 60–180ms gain ramp 切換，不重新播放、不硬切。三層先進音樂匯流排，再經 master limiter；不得靠持續提高總音量表現壓力。
 
@@ -38,6 +38,9 @@
 | 影刺客進入預兆 | `enemy-telegraph-shade` | 高頻鋸齒三連短促收束 |
 | 焰奴攻擊生效 | `enemy-attack-ember` | 單次低頻方波重擊 |
 | 影刺客攻擊生效 | `enemy-attack-shade` | 鋸齒雙刺 |
+| 甲衛預兆／攻擊 | `enemy-*-bulwark` | 低頻三拍蓄盾／沉重雙撞 |
+| Boss 落槌／衝鋒／召喚 | `boss-{smash,charge,summon}-*` | 低頻圓震／上揚長掃／四拍儀式，各自不可混用 |
+| Boss 二／三階段 | `boss-phase-2`／`boss-phase-3` | 三段甦醒／四段暴走，與全畫面演出同步 |
 | 普攻命中 1／2／3 | `combo-hit-*` | 逐段加厚；第三段為雙脈衝長尾 |
 | 普攻落空 | `combo-whiff` | 低 gain 短掃頻，不與命中混淆 |
 | 一般／精準閃避 | `dodge`／`dodge-precision` | 一般單次上揚；精準為高頻雙閃 |
@@ -46,10 +49,17 @@
 | Q／E／失敗 | `skill-q`／`skill-e`／`skill-failed` | Q 單次上衝；E 雙脈衝；失敗為 UI 低音拒絕 |
 | 玩家受擊／格擋 | `player-hit`／`player-blocked` | 受擊粗糙向下；格擋高頻三連金屬感 |
 | 遭遇清空／三選一 | `encounter-cleared`／`draft-offered` | UI 和聲雙音 |
-| 三枚印記 | `mark-selected-*` | 裂焰低頻方波、影步高頻三連、守勢穩定雙脈衝 |
+| 十二枚印記 | `mark-selected-{mark-id}` | 每枚 frequency、waveform、rhythm 組合唯一；不是只分三學派 |
+| 印記改寫動作 | `mark-action-*` | 裂焰、追擊、鐵壁、重置、鏡甲、收割、核心、獻祭、殘影、反震各有動作 cue |
 | 勝利／戰敗 | `victory`／`defeat` | 勝利三段上行；戰敗長段下沉 |
 
 音訊層額外比較相鄰 `GameState`：敵人從非 `telegraph` 進入 `telegraph` 時立即播放預兆；從 `telegraph` 回到 `cooldown` 時播放攻擊。這比在畫面幀輪詢可靠，因 `game-loop` 每個 logical tick 都把前後狀態送進音訊層，即使一個 rAF 推進多 tick 也不漏 cue。
+
+### 輕、輕、重命中分級（2026-08-03）
+
+- 真實 `comboHit.hitIndex` 直接映射 `combo-hit-1`／`combo-hit-2`／`combo-hit-3`，不得由動畫幀猜測。
+- 第一／二段是單脈衝 triangle，75／90ms，190→110Hz／240→125Hz；第三段是雙脈衝 sawtooth，180ms，310→82Hz。重擊尾頻更低、時長至少是第一段兩倍且有第二拍，因此不是只把同一聲音放大。
+- cue 局部 gain 分別 0.20／0.23／0.28，全部 ≤0.30；effects bus 與 master `DynamicsCompressor` limiter 維持既有路徑，不因同 tick VFX 加強而疊加額外命中 cue，避免削波。
 
 ## 首次互動與生命週期
 
@@ -63,7 +73,10 @@
 | 狀態 | base | combat | threat |
 |---|---:|---:|---:|
 | 遭遇一 | 0.35 | 0.48 | 每名預兆敵人 +0.28 |
-| 遭遇二 | 0.35 | 0.72 | 每名預兆敵人 +0.28 |
+| 戰區一後段 | 0.35 | 0.58 | 每名預兆敵人 +0.28 |
+| 戰區二 | 0.35 | 0.68 | 每名預兆敵人 +0.28 |
+| 戰區三 | 0.35 | 0.80 | 每名預兆敵人 +0.28 |
+| Boss | 0.35 | 0.90 | 第二階段 +0.18；第三階段 +0.34 |
 | 玩家 HP ≤66 | 同上 | 同上 | 額外 +0.18 |
 | 三選一 | 0.22 | 0 | 0 |
 | 勝利／戰敗 | 0 | 0 | 0 |
@@ -87,7 +100,7 @@
 - `director.test.ts`：首次互動前零 backend、三匯流排、總靜音及事件播放。
 - `audio-content.test.ts`：cue id 唯一、首拍為 0、gain 上限、延遲目標及必要事件齊全。
 - `game-loop-audio.test.ts`：單幀多 tick 時仍逐 tick 送出前後狀態。
-- 真人瀏覽器驗收：盲測焰奴／影刺客預兆、受擊／格擋、Q／E、三枚印記與勝敗；確認 console 無錯、首次互動前無 autoplay。
+- 真人瀏覽器驗收：盲測四種敵人、Boss 三攻勢、十二枚印記選取與改寫動作、受擊／格擋與勝敗；確認 console 無錯、首次互動前無 autoplay。此項尚未執行，不宣稱通過。
 
 ## 素材與授權
 

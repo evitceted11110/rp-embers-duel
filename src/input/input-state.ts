@@ -57,11 +57,14 @@ export function assembleTickInput(
   phase: RunPhase,
   pendingDraftChoice: MarkId | null,
   restartHeld: boolean,
+  aim: Readonly<{ x: number; y: number }> = { x: 0, y: 0 },
 ): TickInput {
   const { moveX, moveY } = computeMoveAxis(actionStates)
   return {
     moveX,
     moveY,
+    aimX: aim.x,
+    aimY: aim.y,
     attack: actionStates.attack,
     dodge: actionStates.dodge,
     skillQ: actionStates.skillQ,

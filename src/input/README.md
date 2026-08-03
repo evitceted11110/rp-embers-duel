@@ -13,7 +13,12 @@ import { createInputController } from '../input/index.js'
 import { defaultBindingsState, BINDINGS_CONFIG, loadBindings } from '../input/index.js'
 
 const bindings = await loadBindings(sdk, BINDINGS_CONFIG) // sdk 是 connect() 回傳的 PlatformSdk
-const inputController = createInputController({ bindings })
+const inputController = createInputController({
+  bindings,
+  contextMenuTarget: stage,
+  resolvePointerAim: (clientX, clientY) => screenPointerToPlayerWorldVector(clientX, clientY),
+  getFallbackAim: () => state.player.facing,
+})
 
 // 遊戲迴圈裡，每次要呼叫 core 的 tick() 之前：
 const tickInput = inputController.buildTickInput(state.phase)
@@ -22,10 +27,11 @@ state = tick(state, tickInput)
 
 `buildTickInput(phase)` 每呼叫一次就會：
 - 讀目前按住的鍵盤/滑鼠鍵，轉成 `moveX`/`moveY`/`attack`/`dodge`/`skillQ`/`skillE`。
+- stage 內 `pointermove` 經呼叫端 callback 轉成 `aimX/aimY`；進入前回退 core facing，進入後保留最後游標方向。
 - 若 `phase !== 'draft'`，`draftChoice` 強制為 `null`；否則透出上一次
   `submitDraftChoice()` 設定的值，**且只透出一次**（下一次呼叫就歸零）。
-- 讀切片專用的快速重開鍵（固定 `KeyR`，見 `controller.ts` 的 `RESTART_CODE`，
-  不走可重綁系統——`content/bindings.json` 沒有定義它，因為這不是正式遊戲動作）。
+- 讀快速重開鍵（固定 `KeyR`，見 `controller.ts` 的 `RESTART_CODE`，
+  不走戰鬥動作的可重綁系統）。
 
 三選一畫面（`state.phase === 'draft'`）：畫三張卡片，玩家點選時呼叫
 `inputController.submitDraftChoice(markId)`，不需要自己管理 tick 邊界——控制器會在
@@ -64,7 +70,7 @@ const panel = mountRebindPanel(settingsContainer, inputController, sdk)
 | `bindings.ts` | 純函式 | 讀 `content/bindings.json`、綁定狀態、衝突偵測與處置（swap/override/cancel）、禁綁鍵驗證 |
 | `input-state.ts` | 純函式 | held 狀態 -> `ActionStates` -> `TickInput` |
 | `settings-storage.ts` | 混合 | 序列化/還原是純函式；`loadBindings`/`saveBindings` 是唯一碰 `sdk.storage` 的地方 |
-| `controller.ts` | 副作用薄殼 | 掛 `addEventListener`（keydown/keyup/mousedown/mouseup/blur/pointercancel/visibilitychange），維護 held 集合 |
+| `controller.ts` | 副作用薄殼 | 掛 `addEventListener`（keydown/keyup/mousedown/mouseup/pointermove/blur/pointercancel/visibilitychange），維護 held 集合與最後 aim |
 | `rebind-panel.ts` | 副作用薄殼，無測試 | 純 DOM 重綁面板 |
 
 `controller.ts` 不直接依賴真實 DOM 型別（`Window`/`Document`），而是宣告
@@ -86,5 +92,5 @@ const panel = mountRebindPanel(settingsContainer, inputController, sdk)
   這樣「不可被重綁移除」這條規格變成一個不變量，不需要記得例外。
 - **衝突 `override` 的語意**：新動作取得該鍵，原本持有者變成 `null`（未綁定），
   不會嘗試幫它找一個替代鍵。玩家會在重綁面板看到「（未綁定）」，可以自己再綁。
-- **快速重開鍵固定 `KeyR`，不在 `content/bindings.json` 裡、不可重綁**：因為它不是
-  正式遊戲動作（`src/core/README.md` 的警語——這是切片測試便利機制）。
+- **快速重開鍵固定 `KeyR`，不在 `content/bindings.json` 裡、不可重綁**：它是整局重試入口，
+  不與戰鬥動作搶可重綁 slot，也不需要儲存。

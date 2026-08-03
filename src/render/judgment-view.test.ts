@@ -147,7 +147,7 @@ describe('敵人預兆：沒有這個玩家就無法判斷何時閃避', () => {
   it('焰奴進入 telegraph 狀態時輸出 warningRed 的 parry-halo（地面／硬邊）', () => {
     const s = state({
       enemies: [
-        { id: 'e0', kind: 'ember-thrall', position: { x: 1, y: 0 }, hp: 200, maxHp: 200, attackState: 'telegraph', timerTicks: 25 },
+        { id: 'e0', kind: 'ember-thrall', position: { x: 1, y: 0 }, hp: 200, maxHp: 200, attackState: 'telegraph', velocity: { x: 0, y: 0 }, locomotion: 'brace', attackRecoveryTicksRemaining: 0, telegraphGeometry: null, timerTicks: 25 },
       ],
     })
     const effects = buildJudgmentEffects(s, INITIAL_VFX_STATE)
@@ -161,7 +161,7 @@ describe('敵人預兆：沒有這個玩家就無法判斷何時閃避', () => {
   it('影刺客進入 telegraph 狀態時輸出 assassinDark 的 afterimage（地面／硬邊）', () => {
     const s = state({
       enemies: [
-        { id: 's0', kind: 'shade-skirmisher', position: { x: -1, y: 0 }, hp: 145, maxHp: 145, attackState: 'telegraph', timerTicks: 10 },
+        { id: 's0', kind: 'shade-skirmisher', position: { x: -1, y: 0 }, hp: 145, maxHp: 145, attackState: 'telegraph', velocity: { x: 0, y: 0 }, locomotion: 'brace', attackRecoveryTicksRemaining: 0, telegraphGeometry: null, timerTicks: 10 },
       ],
     })
     const effects = buildJudgmentEffects(s, INITIAL_VFX_STATE)
@@ -174,8 +174,8 @@ describe('敵人預兆：沒有這個玩家就無法判斷何時閃避', () => {
   it('非 telegraph 狀態（approach/cooldown）或已死亡的敵人不輸出預兆', () => {
     const s = state({
       enemies: [
-        { id: 'a', kind: 'ember-thrall', position: { x: 1, y: 0 }, hp: 200, maxHp: 200, attackState: 'approach', timerTicks: 0 },
-        { id: 'b', kind: 'ember-thrall', position: { x: 1, y: 0 }, hp: 0, maxHp: 200, attackState: 'telegraph', timerTicks: 5 },
+        { id: 'a', kind: 'ember-thrall', position: { x: 1, y: 0 }, hp: 200, maxHp: 200, attackState: 'approach', velocity: { x: 0, y: 0 }, locomotion: 'advance', attackRecoveryTicksRemaining: 0, telegraphGeometry: null, timerTicks: 0 },
+        { id: 'b', kind: 'ember-thrall', position: { x: 1, y: 0 }, hp: 0, maxHp: 200, attackState: 'telegraph', velocity: { x: 0, y: 0 }, locomotion: 'brace', attackRecoveryTicksRemaining: 0, telegraphGeometry: null, timerTicks: 5 },
       ],
     })
     expect(buildJudgmentEffects(s, INITIAL_VFX_STATE)).toHaveLength(0)

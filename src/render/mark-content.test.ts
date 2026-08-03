@@ -8,8 +8,9 @@ import {
 } from './mark-content.js'
 
 describe('draftCardContent：三選一卡片資料來自 content/marks.json 正本', () => {
-  it('DRAFT_CARD_ORDER 固定是三枚 keystone，且每枚都能取出卡片資料', () => {
-    expect(DRAFT_CARD_ORDER).toEqual(['ember-core', 'precision-afterimage', 'charged-retaliation'])
+  it('DRAFT_CARD_ORDER 涵蓋全部十二枚印記，且每枚都能取出卡片資料', () => {
+    expect(DRAFT_CARD_ORDER).toHaveLength(12)
+    expect(new Set(DRAFT_CARD_ORDER).size).toBe(12)
     for (const id of DRAFT_CARD_ORDER) {
       const card = draftCardContent(id)
       expect(card.name.length).toBeGreaterThan(0)
