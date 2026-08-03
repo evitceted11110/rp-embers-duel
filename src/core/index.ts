@@ -35,6 +35,7 @@ export {
 } from './constants.js'
 export { EMBER_CORE, PRECISION_AFTERIMAGE } from './content.js'
 export { createEnemyAttackGeometry, enemyGeometryContains } from './enemy-geometry.js'
+export { DEFAULT_FORGE, FORGE_CARDS, applyForgeCard, forgeChoices } from './forge.js'
 export { MAX_SIMULTANEOUS_ENEMIES, WAVE_TELEGRAPH_TICKS } from './encounter-director.js'
 export {
   circleIntersectsSector,
@@ -55,6 +56,8 @@ export type {
   EnemyKind,
   EnemyLocomotion,
   EnemyState,
+  ForgeLoadout,
+  ForgeSlotId,
   EncounterDirectorState,
   GameEvent,
   GameState,

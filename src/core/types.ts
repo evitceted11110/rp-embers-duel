@@ -67,6 +67,14 @@ export type MarkId =
   | 'mirror-plating'
   | 'bulwark-chain'
 
+export type ForgeSlotId = 'attack' | 'q' | 'e'
+export type ForgeCoreId = 'mercenary-blade' | 'spinning-ember' | 'cinder-dash' | 'ember-core-forge' | 'breakline-shock' | 'mirror-stance'
+export type ForgeLoadout = {
+  readonly attack: { readonly core: 'mercenary-blade' | 'spinning-ember'; readonly extensions: readonly string[] }
+  readonly q: { readonly core: 'cinder-dash' | 'ember-core-forge'; readonly extensions: readonly string[] }
+  readonly e: { readonly core: 'breakline-shock' | 'mirror-stance'; readonly extensions: readonly string[] }
+}
+
 // ---------------------------------------------------------------------------
 // 玩家狀態
 // ---------------------------------------------------------------------------
@@ -240,6 +248,7 @@ export type GameState = {
   readonly encounterIndex: number
   readonly selectedMark: MarkId | null
   readonly selectedMarks: readonly MarkId[]
+  readonly forge: ForgeLoadout
   readonly draftOptions: readonly MarkId[]
   readonly player: PlayerState
   readonly enemies: readonly EnemyState[]

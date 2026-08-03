@@ -15,6 +15,7 @@ import { resolvePlayerTick } from './combat.js'
 import { PLAYER_MAX_HP } from './constants.js'
 import { ENCOUNTERS, MARKS, ZONE_CLEAR_HEALS, markDef } from './content.js'
 import { advanceEnemies } from './enemy.js'
+import { DEFAULT_FORGE } from './forge.js'
 import { advanceWaveTelegraph, announceNextWave, createEncounterDirector, hasRemainingWaves, isBossRoom, spawnOpeningWave } from './encounter-director.js'
 import {
   neutralInput,
@@ -84,6 +85,7 @@ export function createRun(seed: string): GameState {
     encounterIndex: 0,
     selectedMark: null,
     selectedMarks: [],
+    forge: DEFAULT_FORGE,
     draftOptions: [],
     player: initialPlayer(),
     enemies: opening.enemies,
