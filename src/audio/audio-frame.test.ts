@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { GameState } from '../core/index.js'
-import { createRun } from '../core/index.js'
+import { materializeOpeningWave } from '../core/test-utils.js'
 import { deriveAudioFrame } from './audio-frame.js'
 
 function state(overrides: Partial<GameState> = {}): GameState {
-  return { ...createRun('audio-frame-test'), ...overrides }
+  return { ...materializeOpeningWave('audio-frame-test'), events: [], ...overrides }
 }
 
 describe('deriveAudioFrame', () => {

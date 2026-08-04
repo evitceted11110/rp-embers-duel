@@ -4,6 +4,7 @@ import { DUNGEON_ARENA_RECT, DUNGEON_HEIGHT, DUNGEON_WIDTH, WORLD_ANCHOR, WORLD_
 import { ARENA_BOUNDS } from '../core/index.js'
 import { attackWindowCue, describeDungeonScene, heroPose, markVisualCues, precisionSlowMotionVisualCue, telegraphCue } from './dungeon-view.js'
 import { INITIAL_VFX_STATE } from './vfx-tracker.js'
+import { materializeOpeningWave } from '../core/test-utils.js'
 
 describe('rework 0.1.0 地城舞台映射', () => {
   it('使用 640×360 中解析像素畫布，而非已否決的 160×90 巨像素畫布', () => {
@@ -101,7 +102,7 @@ describe('戰鬥範圍提示與 core 幾何共用常數', () => {
   })
 
   it('敵方預兆提供輪廓、填色進度、方向與最後 20% 非色彩閃動旗標', () => {
-    const base = createRun('telegraph').enemies[0]!
+    const base = materializeOpeningWave('telegraph').enemies[0]!
     const geometry = createEnemyAttackGeometry('ember-thrall', null, base.position, { x: 0, y: 0 })
     const enemy = { ...base, attackState: 'telegraph' as const, timerTicks: 5, telegraphGeometry: geometry }
     expect(telegraphCue(enemy)).toMatchObject({ outlined: true, directional: true, finalWarning: true })
@@ -119,7 +120,7 @@ describe('戰鬥範圍提示與 core 幾何共用常數', () => {
   })
 
   it('Boss smash／charge／summon 與三種一般敵人都有專屬地面提示形狀', () => {
-    const base = createRun('all-telegraphs').enemies[0]!
+    const base = materializeOpeningWave('all-telegraphs').enemies[0]!
     expect(telegraphCue({ ...base, kind: 'ember-thrall' }).shape).toBe('cone')
     expect(telegraphCue({ ...base, kind: 'shade-skirmisher' }).shape).toBe('lane')
     expect(telegraphCue({ ...base, kind: 'bulwark-sentinel' }).shape).toBe('shield-fan')

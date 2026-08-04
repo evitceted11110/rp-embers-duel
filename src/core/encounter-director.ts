@@ -84,8 +84,8 @@ function enemyFromTelegraph(seed: string, director: EncounterDirectorState, wave
     kind: telegraph.kind,
     position: telegraph.position,
     // 波次雜兵的耐久刻意低於 content 的單體基準：數量創造壓力，清群創造回饋。
-    hp: telegraph.kind === 'ember-thrall' ? 20 : telegraph.kind === 'shade-skirmisher' ? 38 : telegraph.kind === 'bulwark-sentinel' ? 70 : Math.max(1, Math.round(def.hp * (director.roomIndex === 2 ? 0.42 : 0.62))),
-    maxHp: telegraph.kind === 'ember-thrall' ? 20 : telegraph.kind === 'shade-skirmisher' ? 38 : telegraph.kind === 'bulwark-sentinel' ? 70 : Math.max(1, Math.round(def.hp * (director.roomIndex === 2 ? 0.42 : 0.62))),
+    hp: telegraph.kind === 'ember-thrall' ? 18 : telegraph.kind === 'shade-skirmisher' ? 38 : telegraph.kind === 'bulwark-sentinel' ? 70 : Math.max(1, Math.round(def.hp * (director.roomIndex === 2 ? 0.42 : 0.62))),
+    maxHp: telegraph.kind === 'ember-thrall' ? 18 : telegraph.kind === 'shade-skirmisher' ? 38 : telegraph.kind === 'bulwark-sentinel' ? 70 : Math.max(1, Math.round(def.hp * (director.roomIndex === 2 ? 0.42 : 0.62))),
     attackState: 'approach', velocity: { x: 0, y: 0 }, locomotion: 'advance', attackRecoveryTicksRemaining: 0,
     telegraphGeometry: null, timerTicks: Math.max(1, Math.round(intervalTicks * (0.5 + jitter * 0.5))),
     attacksPerformed: 0, bossPhase: telegraph.kind === 'ashen-warlord' ? 1 : 0, bossAttack: telegraph.kind === 'ashen-warlord' ? 'smash' : null,
@@ -104,12 +104,10 @@ export function advanceWaveTelegraph(director: EncounterDirectorState, seed: str
   }
 }
 
-/** 房間開場第一波直接可戰；之後每一波才以 1.15 秒預告進場，維持既有載入與測試節奏。 */
+/** 房間開場第一波同樣先以 1.15 秒預告進場。 */
 export function spawnOpeningWave(director: EncounterDirectorState, seed: string, player: Vector2): { director: EncounterDirectorState; enemies: readonly EnemyState[]; events: readonly GameEvent[] } {
   const announced = announceNextWave(director, seed, player)
-  const spawned = advanceWaveTelegraph({ ...announced.director, telegraphTicksRemaining: 1 }, seed)
-  if (spawned === null) throw new Error('開場波次排程失敗')
-  return spawned
+  return { director: announced.director, enemies: [], events: announced.events }
 }
 
 export function hasRemainingWaves(director: EncounterDirectorState): boolean {

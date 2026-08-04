@@ -3,6 +3,7 @@ import { ATTACK_RANGE_UNITS, DODGE_INVINCIBILITY_S, secondsToTicks } from './con
 import { CHARGED_RETALIATION } from './content.js'
 import { createRun, tick } from './run.js'
 import { buildState, input, makeEnemy } from './test-utils.js'
+import { WAVE_TELEGRAPH_TICKS } from './encounter-director.js'
 import type { EnemyState, GameState, MarkId, TickInput } from './types.js'
 
 function nearestLivingEnemy(state: GameState): { enemy: EnemyState; dist: number } | undefined {
@@ -103,12 +104,15 @@ describe('run：兩段六關、第三與第六關 Boss 的波次遭遇', () => {
   })
 
   it('遭遇1清空後進入三選一（draft），畫面上只有三枚 keystone 可選', () => {
-    const state = buildState({ phase: 'draft', enemies: [], draftOptions: ['ember-core', 'precision-afterimage', 'charged-retaliation'] })
+    const state = buildState({ phase: 'draft', encounterIndex: -1, enemies: [], draftOptions: ['ember-core', 'precision-afterimage', 'charged-retaliation'] })
     expect(state.phase).toBe('draft')
     const next = tick(state, input({ draftChoice: 'charged-retaliation' }))
     expect(next.phase).toBe('encounter1')
     expect(next.selectedMark).toBe('charged-retaliation')
-    expect(next.enemies).toHaveLength(4)
+    expect(next.enemies).toEqual([])
+    let spawned = next
+    for (let i = 0; i < WAVE_TELEGRAPH_TICKS; i += 1) spawned = tick(spawned, input())
+    expect(spawned.enemies).toHaveLength(4)
   })
 
   it('draft 階段暫停戰鬥計時：cooldown 等計時器不會在等待選擇時繼續推進', () => {

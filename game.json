@@ -2,6 +2,6 @@
   "slug": "embers-duel",
   "title": "餘燼決鬥場",
   "tagline": "每一枚餘燼印記都改寫你的攻擊、閃避或戰技形狀。",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0",
   "entry": "index.html"
 }

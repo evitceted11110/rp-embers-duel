@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { createRun, tick } from './run.js'
-import { input } from './test-utils.js'
+import { input, materializeOpeningWave } from './test-utils.js'
 import type { GameState, TickInput } from './types.js'
 
 /**
@@ -80,10 +80,10 @@ describe('決定性重播', () => {
   })
 
   it('不同 seed 會產生不同的初始敵人時序（證明測試本身有偵測力，不是恆真斷言）', () => {
-    const historyA = runFullHistory('seed-alpha', richScript().slice(0, 5))
-    const historyB = runFullHistory('seed-beta', richScript().slice(0, 5))
+    const historyA = materializeOpeningWave('seed-alpha')
+    const historyB = materializeOpeningWave('seed-beta')
     // 兩者的敵人初始攻擊抖動來自不同 seed 的 fork，理應不同（若这条测试本身失败，
     // 代表 spawnEncounter 的 jitter 沒有真的吃到 seed，是另一種需要被抓到的錯誤）。
-    expect(historyA[0]!.enemies).not.toEqual(historyB[0]!.enemies)
+    expect(historyA.enemies).not.toEqual(historyB.enemies)
   })
 })

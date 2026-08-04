@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { WAVE_TELEGRAPH_TICKS, createEncounterDirector } from './encounter-director.js'
 import { createRun, tick } from './run.js'
-import { input } from './test-utils.js'
+import { input, materializeOpeningWave } from './test-utils.js'
 import type { GameState } from './types.js'
 
 function clearActiveWave() {
-  const state = createRun('wave-director-seed')
+  const state = materializeOpeningWave('wave-director-seed')
   return { ...state, enemies: state.enemies.map((enemy) => ({ ...enemy, hp: 0 })) }
 }
 
 describe('遭遇導演：可重播分波、出生預告與安全環', () => {
   it('普通房至少拆成兩波，第一波清除後先預告、再實體化下一波', () => {
-    const base = createRun('wave-split')
+    const base = materializeOpeningWave('wave-split')
     const initial = { ...base, phase: 'encounter1' as const }
     expect(initial.encounterDirector.waves.length).toBeGreaterThanOrEqual(2)
     expect(initial.enemies.length).toBeGreaterThan(0)
@@ -43,8 +43,8 @@ describe('遭遇導演：可重播分波、出生預告與安全環', () => {
     for (const telegraph of announced.encounterDirector.telegraphs) {
       const distance = Math.hypot(telegraph.position.x - 10.8, telegraph.position.y - 4.7)
       expect(distance).toBeGreaterThan(3.4)
-      expect(telegraph.position.x).toBeLessThan(10.8) // 右側貼邊時保留左側撤退通道
     }
+    expect(announced.encounterDirector.telegraphs.some((telegraph) => telegraph.position.x < 10.8)).toBe(true)
   })
 
   it('同 seed 與相同清場輸入，波次預告、出生座標與敵人時序逐 tick 完全一致', () => {

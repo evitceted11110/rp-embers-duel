@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { createPlayerAttackGeometry, createRun, type GameState } from '../core/index.js'
+import { createPlayerAttackGeometry, type GameState } from '../core/index.js'
+import { materializeOpeningWave } from '../core/test-utils.js'
 import { INITIAL_VFX_STATE, updateVfxState, type VfxState } from './vfx-tracker.js'
 
 /** 建一份合法的 GameState 快照，只覆寫測試關心的欄位——不透過 tick() 推進，
  * 純粹拿來測試 updateVfxState 這個純函式的事件記帳邏輯。 */
 function state(overrides: Partial<GameState> = {}): GameState {
-  const base = createRun('vfx-tracker-test')
+  const base = materializeOpeningWave('vfx-tracker-test')
   return { ...base, ...overrides }
 }
 
