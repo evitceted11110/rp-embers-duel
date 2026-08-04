@@ -2,6 +2,24 @@
   "schema_version": 1,
   "latency_target_ms": 40,
   "buses": ["music", "effects", "ui"],
+  "class_event_map": {
+    "effects": {
+      "forgeguard/bulwark-hammer": "class-forgeguard-bulwark-hammer", "forgeguard/heated-rotation": "class-forgeguard-heated-rotation", "forgeguard/anchored-riposte": "class-forgeguard-anchored-riposte", "forgeguard/shield-wedge": "class-forgeguard-shield-wedge",
+      "forgeguard/double-nail-seal": "class-forgeguard-double-nail-seal", "forgeguard/fire-hook": "class-forgeguard-fire-hook", "forgeguard/ring-forged-boundary": "class-forgeguard-ring-forged-boundary", "forgeguard/reforge-relocation": "class-forgeguard-reforge-relocation",
+      "forgeguard/pressure-furnace-roar": "class-forgeguard-pressure-furnace-roar", "forgeguard/iron-curtain-recall": "class-forgeguard-iron-curtain-recall", "forgeguard/corner-pivot": "class-forgeguard-corner-pivot", "forgeguard/molten-lock-retreat": "class-forgeguard-molten-lock-retreat",
+      "shadowline-hunter/crossed-sheath": "class-shadowline-crossed-sheath", "shadowline-hunter/broken-shadow-step": "class-shadowline-broken-shadow-step", "shadowline-hunter/stitched-corner": "class-shadowline-stitched-corner", "shadowline-hunter/pinned-body-swap": "class-shadowline-pinned-body-swap",
+      "shadowline-hunter/double-line-return": "class-shadowline-double-line-return", "shadowline-hunter/gap-marking": "class-shadowline-gap-marking", "shadowline-hunter/loop-tether": "class-shadowline-loop-tether", "shadowline-hunter/reverse-mark-anchor": "class-shadowline-reverse-mark-anchor",
+      "shadowline-hunter/returning-rend": "class-shadowline-returning-rend", "shadowline-hunter/residual-collection": "class-shadowline-residual-collection", "shadowline-hunter/terminal-drop": "class-shadowline-terminal-drop", "shadowline-hunter/cross-line-borrow": "class-shadowline-cross-line-borrow"
+    },
+    "resonances": {
+      "forgeguard/防區反震": "resonance-forgeguard-counter-zone", "forgeguard/封口回收": "resonance-forgeguard-seal-recall", "forgeguard/楔點轉掃": "resonance-forgeguard-wedge-pivot", "forgeguard/錨索退讓": "resonance-forgeguard-anchor-retreat",
+      "shadowline-hunter/線路收割": "resonance-shadowline-line-harvest", "shadowline-hunter/折返處刑": "resonance-shadowline-return-execution", "shadowline-hunter/吊點脫身": "resonance-shadowline-anchor-escape", "shadowline-hunter/交線換身": "resonance-shadowline-cross-swap"
+    },
+    "rejection_reasons": {
+      "防區外": "resonance-rejected-geometry", "未面向爐釘": "resonance-rejected-geometry", "未受壓": "resonance-rejected-timing", "未成功格擋": "resonance-rejected-timing", "缺少雙釘": "resonance-rejected-prerequisite", "熔鏈外": "resonance-rejected-geometry", "缺少裂盾點": "resonance-rejected-prerequisite", "轉掃無目標": "resonance-rejected-geometry", "缺少火索": "resonance-rejected-prerequisite", "缺少爐釘": "resonance-rejected-prerequisite",
+      "缺少折返線": "resonance-rejected-prerequisite", "無標定目標": "resonance-rejected-prerequisite", "錯誤落點": "resonance-rejected-geometry", "缺少危險吊點": "resonance-rejected-prerequisite", "吊點未預兆": "resonance-rejected-geometry", "未落於吊點": "resonance-rejected-geometry", "缺少換位殘切": "resonance-rejected-prerequisite", "缺少第二線": "resonance-rejected-prerequisite", "借位失敗": "resonance-rejected-geometry"
+    }
+  },
   "cues": [
     { "id": "wave-telegraph", "bus": "ui", "waveform": "sine", "frequency_hz": 240, "end_frequency_hz": 360, "duration_ms": 220, "rhythm_ms": [0, 90], "gain": 0.16 },
     { "id": "wave-spawn", "bus": "effects", "waveform": "triangle", "frequency_hz": 110, "end_frequency_hz": 180, "duration_ms": 180, "rhythm_ms": [0], "gain": 0.18 },
@@ -60,6 +78,41 @@
     { "id": "mark-action-afterimage", "bus": "effects", "waveform": "sine", "frequency_hz": 1100, "end_frequency_hz": 275, "duration_ms": 240, "rhythm_ms": [0, 40], "gain": 0.23 },
     { "id": "mark-action-retaliation", "bus": "effects", "waveform": "triangle", "frequency_hz": 160, "end_frequency_hz": 48, "duration_ms": 360, "rhythm_ms": [0, 70], "gain": 0.28 },
     { "id": "mark-action-aftershock", "bus": "effects", "waveform": "square", "frequency_hz": 240, "end_frequency_hz": 40, "duration_ms": 440, "rhythm_ms": [0, 55, 110], "gain": 0.3 },
+    { "id": "class-forgeguard-bulwark-hammer", "bus": "effects", "waveform": "triangle", "frequency_hz": 118, "end_frequency_hz": 64, "duration_ms": 260, "rhythm_ms": [0, 92], "gain": 0.25 },
+    { "id": "class-forgeguard-heated-rotation", "bus": "effects", "waveform": "sawtooth", "frequency_hz": 170, "end_frequency_hz": 116, "duration_ms": 330, "rhythm_ms": [0, 74, 148], "gain": 0.24 },
+    { "id": "class-forgeguard-anchored-riposte", "bus": "effects", "waveform": "square", "frequency_hz": 104, "end_frequency_hz": 196, "duration_ms": 300, "rhythm_ms": [0, 132], "gain": 0.23 },
+    { "id": "class-forgeguard-shield-wedge", "bus": "effects", "waveform": "triangle", "frequency_hz": 224, "end_frequency_hz": 84, "duration_ms": 205, "rhythm_ms": [0], "gain": 0.24 },
+    { "id": "class-forgeguard-double-nail-seal", "bus": "effects", "waveform": "sine", "frequency_hz": 132, "end_frequency_hz": 242, "duration_ms": 330, "rhythm_ms": [0, 108, 216], "gain": 0.22 },
+    { "id": "class-forgeguard-fire-hook", "bus": "effects", "waveform": "sawtooth", "frequency_hz": 286, "end_frequency_hz": 128, "duration_ms": 240, "rhythm_ms": [0, 58], "gain": 0.23 },
+    { "id": "class-forgeguard-ring-forged-boundary", "bus": "effects", "waveform": "square", "frequency_hz": 94, "end_frequency_hz": 154, "duration_ms": 390, "rhythm_ms": [0, 96, 192, 288], "gain": 0.21 },
+    { "id": "class-forgeguard-reforge-relocation", "bus": "effects", "waveform": "triangle", "frequency_hz": 152, "end_frequency_hz": 318, "duration_ms": 290, "rhythm_ms": [0, 146], "gain": 0.22 },
+    { "id": "class-forgeguard-pressure-furnace-roar", "bus": "effects", "waveform": "square", "frequency_hz": 248, "end_frequency_hz": 72, "duration_ms": 360, "rhythm_ms": [0, 44, 132], "gain": 0.28 },
+    { "id": "class-forgeguard-iron-curtain-recall", "bus": "effects", "waveform": "sine", "frequency_hz": 176, "end_frequency_hz": 92, "duration_ms": 310, "rhythm_ms": [0, 78, 156], "gain": 0.25 },
+    { "id": "class-forgeguard-corner-pivot", "bus": "effects", "waveform": "sawtooth", "frequency_hz": 342, "end_frequency_hz": 104, "duration_ms": 250, "rhythm_ms": [0, 120], "gain": 0.26 },
+    { "id": "class-forgeguard-molten-lock-retreat", "bus": "effects", "waveform": "triangle", "frequency_hz": 126, "end_frequency_hz": 264, "duration_ms": 370, "rhythm_ms": [0, 64, 190], "gain": 0.23 },
+    { "id": "class-shadowline-crossed-sheath", "bus": "effects", "waveform": "sawtooth", "frequency_hz": 680, "end_frequency_hz": 238, "duration_ms": 175, "rhythm_ms": [0, 42], "gain": 0.21 },
+    { "id": "class-shadowline-broken-shadow-step", "bus": "effects", "waveform": "sine", "frequency_hz": 470, "end_frequency_hz": 1120, "duration_ms": 145, "rhythm_ms": [0], "gain": 0.19 },
+    { "id": "class-shadowline-stitched-corner", "bus": "effects", "waveform": "triangle", "frequency_hz": 760, "end_frequency_hz": 330, "duration_ms": 245, "rhythm_ms": [0, 82, 164], "gain": 0.2 },
+    { "id": "class-shadowline-pinned-body-swap", "bus": "effects", "waveform": "square", "frequency_hz": 540, "end_frequency_hz": 960, "duration_ms": 185, "rhythm_ms": [0, 54], "gain": 0.22 },
+    { "id": "class-shadowline-double-line-return", "bus": "effects", "waveform": "sine", "frequency_hz": 330, "end_frequency_hz": 980, "duration_ms": 310, "rhythm_ms": [0, 96, 192], "gain": 0.2 },
+    { "id": "class-shadowline-gap-marking", "bus": "effects", "waveform": "triangle", "frequency_hz": 920, "end_frequency_hz": 510, "duration_ms": 155, "rhythm_ms": [0, 70], "gain": 0.18 },
+    { "id": "class-shadowline-loop-tether", "bus": "effects", "waveform": "sawtooth", "frequency_hz": 390, "end_frequency_hz": 690, "duration_ms": 350, "rhythm_ms": [0, 116, 232], "gain": 0.2 },
+    { "id": "class-shadowline-reverse-mark-anchor", "bus": "effects", "waveform": "square", "frequency_hz": 620, "end_frequency_hz": 220, "duration_ms": 280, "rhythm_ms": [0, 66, 198], "gain": 0.21 },
+    { "id": "class-shadowline-returning-rend", "bus": "effects", "waveform": "sawtooth", "frequency_hz": 860, "end_frequency_hz": 170, "duration_ms": 265, "rhythm_ms": [0, 38, 114], "gain": 0.24 },
+    { "id": "class-shadowline-residual-collection", "bus": "effects", "waveform": "sine", "frequency_hz": 740, "end_frequency_hz": 290, "duration_ms": 320, "rhythm_ms": [0, 104], "gain": 0.2 },
+    { "id": "class-shadowline-terminal-drop", "bus": "effects", "waveform": "triangle", "frequency_hz": 1010, "end_frequency_hz": 150, "duration_ms": 295, "rhythm_ms": [0, 72, 144], "gain": 0.23 },
+    { "id": "class-shadowline-cross-line-borrow", "bus": "effects", "waveform": "square", "frequency_hz": 450, "end_frequency_hz": 870, "duration_ms": 335, "rhythm_ms": [0, 88, 176, 264], "gain": 0.21 },
+    { "id": "resonance-forgeguard-counter-zone", "bus": "effects", "waveform": "square", "frequency_hz": 280, "end_frequency_hz": 58, "duration_ms": 460, "rhythm_ms": [0, 52, 170, 290], "gain": 0.29 },
+    { "id": "resonance-forgeguard-seal-recall", "bus": "effects", "waveform": "triangle", "frequency_hz": 210, "end_frequency_hz": 74, "duration_ms": 480, "rhythm_ms": [0, 94, 188, 282], "gain": 0.27 },
+    { "id": "resonance-forgeguard-wedge-pivot", "bus": "effects", "waveform": "sawtooth", "frequency_hz": 360, "end_frequency_hz": 94, "duration_ms": 420, "rhythm_ms": [0, 62, 214], "gain": 0.28 },
+    { "id": "resonance-forgeguard-anchor-retreat", "bus": "effects", "waveform": "sine", "frequency_hz": 126, "end_frequency_hz": 312, "duration_ms": 510, "rhythm_ms": [0, 140, 280], "gain": 0.25 },
+    { "id": "resonance-shadowline-line-harvest", "bus": "effects", "waveform": "sine", "frequency_hz": 980, "end_frequency_hz": 182, "duration_ms": 390, "rhythm_ms": [0, 66, 132], "gain": 0.25 },
+    { "id": "resonance-shadowline-return-execution", "bus": "effects", "waveform": "sawtooth", "frequency_hz": 1120, "end_frequency_hz": 120, "duration_ms": 430, "rhythm_ms": [0, 44, 88, 220], "gain": 0.28 },
+    { "id": "resonance-shadowline-anchor-escape", "bus": "effects", "waveform": "triangle", "frequency_hz": 850, "end_frequency_hz": 1280, "duration_ms": 405, "rhythm_ms": [0, 116, 232], "gain": 0.24 },
+    { "id": "resonance-shadowline-cross-swap", "bus": "effects", "waveform": "square", "frequency_hz": 610, "end_frequency_hz": 1140, "duration_ms": 450, "rhythm_ms": [0, 76, 152, 228], "gain": 0.26 },
+    { "id": "resonance-rejected-prerequisite", "bus": "ui", "waveform": "triangle", "frequency_hz": 164, "end_frequency_hz": 92, "duration_ms": 125, "rhythm_ms": [0, 72], "gain": 0.12 },
+    { "id": "resonance-rejected-geometry", "bus": "ui", "waveform": "square", "frequency_hz": 300, "end_frequency_hz": 170, "duration_ms": 105, "rhythm_ms": [0, 34, 68], "gain": 0.12 },
+    { "id": "resonance-rejected-timing", "bus": "ui", "waveform": "sine", "frequency_hz": 510, "end_frequency_hz": 250, "duration_ms": 155, "rhythm_ms": [0, 96], "gain": 0.12 },
     { "id": "victory", "bus": "ui", "waveform": "sine", "frequency_hz": 392, "end_frequency_hz": 784, "duration_ms": 500, "rhythm_ms": [0, 130, 260], "gain": 0.2 },
     { "id": "defeat", "bus": "ui", "waveform": "triangle", "frequency_hz": 220, "end_frequency_hz": 55, "duration_ms": 650, "rhythm_ms": [0], "gain": 0.2 }
   ]

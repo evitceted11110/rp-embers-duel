@@ -1,4 +1,5 @@
 import type { MarkId } from '../core/index.js'
+import { ACTION_SLOT_CONTENT } from './action-slot-content.js'
 import type { HudViewModel } from './hud-view.js'
 
 export type DungeonHudHandle = { update(model: HudViewModel, endingVisible?: boolean, showClearFeedback?: boolean): void }
@@ -49,9 +50,9 @@ function installStyles(container: HTMLElement): void {
     .portrait{width:44px;height:44px;background:#211f2a;border:2px solid #746765;position:relative}.portrait:before{content:"";position:absolute;left:10px;top:8px;width:24px;height:20px;background:#aeb4b4;clip-path:polygon(0 15%,78% 0,100% 28%,88% 100%,10% 100%)}.portrait:after{content:"";position:absolute;left:14px;top:24px;width:18px;height:5px;background:#100f16;box-shadow:7px 1px #ffd37a}
     .hp-label{font-size:12px;display:flex;justify-content:space-between}.hp-track{height:12px;background:#211f2a;border:2px solid #100f16;position:relative;overflow:hidden}.hp-delay,.hp-fill{position:absolute;inset:0 auto 0 0;transition:width .35s}.hp-delay{background:#7d2d32}.hp-fill{background:linear-gradient(90deg,#a73437,#e85d32);transition-duration:.1s}.mark-line{font-size:12px;color:#d9cbb3;margin-top:3px}.build-list{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px}.build-mark{font-size:9px;border:1px solid currentColor;padding:2px 4px;background:#17151c}.build-mark.ember{color:#e85d32}.build-mark.shadow{color:#74d4cf}.build-mark.guard{color:#f2df9b}
     .objective{position:absolute;right:2%;top:3%;padding:9px 13px;text-align:right;min-width:210px}.room{font-size:15px;font-weight:800;letter-spacing:.12em;color:#ffd37a}.goal{font-size:12px;margin-top:3px}
-    .action-bar{position:absolute;left:50%;bottom:2.5%;transform:translateX(-50%);display:flex;gap:7px}.action-slot{width:92px;height:58px;padding:6px;position:relative;overflow:hidden}.action-slot.failed{animation:slotFail .18s 2;border-color:#7d2d32}.slot-cooldown{position:absolute;left:0;right:0;bottom:0;background:rgba(11,10,15,.72);transition:height .08s}.slot-label,.slot-key,.slot-time{position:relative;z-index:1}.slot-label{font-size:11px;color:#d0c4b0}.slot-key{font-size:15px;font-weight:900;color:#ffd37a}.slot-time{position:absolute;right:6px;bottom:5px;font-size:10px}
+    .action-bar{position:absolute;left:50%;bottom:2.5%;transform:translateX(-50%);display:flex;gap:7px}.action-slot{width:92px;height:58px;padding:6px;position:relative;overflow:hidden}.action-slot.failed{animation:slotFail .18s 2;border-color:#7d2d32}.slot-cooldown{position:absolute;left:0;right:0;bottom:0;background:rgba(11,10,15,.72);transition:height .08s}.slot-badge,.slot-label,.slot-key,.slot-time{position:relative;z-index:1}.slot-badge{display:inline-block;padding:1px 3px;border:1px solid #746765;color:#ffd37a;font-size:9px;font-weight:900}.slot-label{font-size:11px;color:#d0c4b0}.slot-key{font-size:15px;font-weight:900;color:#ffd37a}.slot-time{position:absolute;right:6px;bottom:5px;font-size:10px}
     .restart-hint{position:absolute;right:2%;bottom:3%;font-size:11px;color:#aeb4b4}.draft{position:absolute;inset:0;display:none;align-items:flex-end;justify-content:center;gap:1.2%;padding:0 4% 6%;background:rgba(16,15,22,.58);pointer-events:auto}.draft.visible{display:flex}.draft-title{position:absolute;top:9%;left:0;right:0;text-align:center}.draft-title b{display:block;font-size:25px;color:#ffd37a;letter-spacing:.18em}.draft-title span{font-size:13px}
-    .mark-card{width:28%;max-width:300px;min-height:210px;padding:14px;background:linear-gradient(160deg,#393642,#211f2a 65%);color:#e6dcc4;border:3px solid var(--mark);box-shadow:inset 0 0 0 3px #100f16,0 7px 0 #100f16;text-align:left;cursor:pointer;font:inherit}.mark-card:hover,.mark-card:focus-visible{transform:translateY(-6px);outline:3px solid #fff0ad}.mark-glyph{width:32px;height:32px;display:grid;place-items:center;color:var(--mark);font-size:25px}.mark-name{font-size:18px;font-weight:900;color:var(--mark)}.mark-tag{font-size:11px;min-height:34px;margin:5px 0}.steps{display:flex;gap:4px;margin:9px 0}.step{flex:1;border:1px solid #746765;padding:6px 3px;text-align:center;font-size:10px;background:#17151c}.step+.step:before{content:"› ";color:var(--mark)}.feedback{font-size:11px;line-height:1.45;color:#c7baa5}
+    .mark-card{width:28%;max-width:300px;min-height:210px;padding:14px;background:linear-gradient(160deg,#393642,#211f2a 65%);color:#e6dcc4;border:3px solid var(--mark);box-shadow:inset 0 0 0 3px #100f16,0 7px 0 #100f16;text-align:left;cursor:pointer;font:inherit}.mark-card:hover,.mark-card:focus-visible{transform:translateY(-6px);outline:3px solid #fff0ad}.mark-glyph{width:32px;height:32px;display:grid;place-items:center;color:var(--mark);font-size:25px}.mark-name{font-size:18px;font-weight:900;color:var(--mark)}.mark-slots{display:flex;gap:4px;min-height:22px;margin:5px 0}.mark-slot{border:1px solid var(--mark);padding:2px 5px;background:#17151c;color:var(--mark);font-size:10px;font-weight:900}.mark-tag{font-size:11px;min-height:34px;margin:5px 0}.steps{display:flex;gap:4px;margin:9px 0}.step{flex:1;border:1px solid #746765;padding:6px 3px;text-align:center;font-size:10px;background:#17151c}.step+.step:before{content:"› ";color:var(--mark)}.feedback{font-size:11px;line-height:1.45;color:#c7baa5}
     .clear-feedback{position:absolute;inset:0;display:none;place-items:center;background:radial-gradient(circle,rgba(255,211,122,.12),transparent 48%);font-size:24px;font-weight:900;letter-spacing:.22em;color:#ffd37a;animation:clearPulse .7s ease-out;pointer-events:none}.clear-feedback.visible{display:grid}
     .ending{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;background:rgba(16,15,22,.64);pointer-events:none}.ending.visible{display:flex}.ending-box{padding:24px 40px;text-align:center;min-width:310px}.ending h1{margin:0;color:#ffd37a;font-size:34px;letter-spacing:.16em}.ending p{font-size:14px}.ending .ending-key{display:inline-block;border:2px solid #746765;padding:7px 14px;color:#e6dcc4;background:#211f2a}
     @keyframes slotFail{50%{transform:translateX(4px);filter:brightness(.55)}}@keyframes clearPulse{0%{opacity:0;transform:scale(.85)}30%{opacity:1}100%{opacity:.72;transform:scale(1)}}
@@ -89,23 +90,24 @@ export function mountDungeonHud(container: HTMLElement, onSelectMark: (mark: Mar
   root.appendChild(objective)
 
   const actionBar = element('section', 'action-bar')
-  const slots = new Map<string, { root: HTMLElement; key: HTMLElement; cooldown: HTMLElement; time: HTMLElement }>()
+  const slots = new Map<string, { root: HTMLElement; badge: HTMLElement; label: HTMLElement; key: HTMLElement; cooldown: HTMLElement; time: HTMLElement }>()
   for (const id of ['attack', 'dodge', 'skillQ', 'skillE']) {
     const slot = element('div', 'action-slot hud-panel')
     const cooldown = element('div', 'slot-cooldown')
+    const badge = element('div', 'slot-badge')
     const label = element('div', 'slot-label')
     const key = element('div', 'slot-key')
     const time = element('div', 'slot-time')
-    slot.append(cooldown, label, key, time)
+    slot.append(cooldown, badge, label, key, time)
     actionBar.appendChild(slot)
-    slots.set(id, { root: slot, key, cooldown, time })
+    slots.set(id, { root: slot, badge, label, key, cooldown, time })
   }
   root.appendChild(actionBar)
   root.appendChild(element('div', 'restart-hint', 'R｜快速重開'))
 
   const draft = element('section', 'draft')
   const draftTitle = element('div', 'draft-title')
-  draftTitle.innerHTML = '<b>三燼祭壇</b><span>選擇一枚印記，改寫下一場戰鬥</span>'
+  draftTitle.innerHTML = '<b>三燼祭壇</b><span>選擇一枚印記，改寫下一場戰鬥｜Tab 選擇，Enter 確認</span>'
   draft.appendChild(draftTitle)
   const cardNodes = new Map<MarkId, { button: HTMLButtonElement; name: HTMLElement; tag: HTMLElement; feedback: HTMLElement }>()
   root.appendChild(draft)
@@ -124,6 +126,7 @@ export function mountDungeonHud(container: HTMLElement, onSelectMark: (mark: Mar
   root.appendChild(ending)
 
   let builtCardKey = ''
+  let draftWasVisible = false
   let delayedHp = 100
   let previousHp = 100
 
@@ -137,13 +140,16 @@ export function mountDungeonHud(container: HTMLElement, onSelectMark: (mark: Mar
       const button = element('button', 'mark-card')
       button.type = 'button'
       button.style.setProperty('--mark', MARK_COLORS[card.id])
+      button.setAttribute('aria-label', `${card.name}｜改寫 ${card.affectedSlots.map((slotId) => ACTION_SLOT_CONTENT[slotId].badge).join('、')} 槽`)
       const glyph = element('div', 'mark-glyph', card.id === 'ember-core' ? '♨' : card.id === 'precision-afterimage' ? '✣' : '⬡')
       const name = element('div', 'mark-name')
+      const slotBadges = element('div', 'mark-slots')
+      for (const slotId of card.affectedSlots) slotBadges.appendChild(element('span', 'mark-slot', ACTION_SLOT_CONTENT[slotId].badge))
       const tag = element('div', 'mark-tag')
       const steps = element('div', 'steps')
       for (const stepText of MARK_STEPS[card.id]) steps.appendChild(element('div', 'step', stepText))
       const feedback = element('div', 'feedback')
-      button.append(glyph, name, tag, steps, feedback)
+      button.append(glyph, name, slotBadges, tag, steps, feedback)
       button.addEventListener('click', () => onSelectMark(card.id))
       draft.appendChild(button)
       cardNodes.set(card.id, { button, name, tag, feedback })
@@ -159,20 +165,21 @@ export function mountDungeonHud(container: HTMLElement, onSelectMark: (mark: Mar
       hpDelay.style.width = `${Math.max(model.hpPercent, delayedHp)}%`
       previousHp = model.hpPercent
       markLine.textContent = model.selectedMarkName === null ? '印記｜尚未刻印' : `印記｜${model.selectedMarkName}`
-      buildList.replaceChildren(...model.selectedBuild.map((mark) => element('span', `build-mark ${mark.school}`, mark.name)))
+      buildList.replaceChildren(...model.selectedBuild.map((mark) => element('span', `build-mark ${mark.school}`, mark.slotBadge === null ? mark.name : `${mark.slotBadge}｜${mark.name}`)))
       room.textContent = model.roomName
       goal.textContent = model.objective
       for (const action of model.actionSlots) {
         const slot = slots.get(action.id)
         if (slot === undefined) continue
-        slot.root.querySelector<HTMLElement>('.slot-label')!.textContent = action.label
+        slot.badge.textContent = action.slotBadge
+        slot.label.textContent = action.label
         slot.key.textContent = action.binding
         slot.cooldown.style.height = `${action.cooldownPercent}%`
         slot.time.textContent = action.cooldownSeconds > 0 ? `${action.cooldownSeconds.toFixed(1)}s` : 'READY'
         slot.root.classList.toggle('failed', action.failed)
       }
       buildCards(model)
-      draftTitle.innerHTML = `<b>第 ${model.draftNumber}／6 次刻印</b><span>以下皆為目前構築可合法選擇的印記</span>`
+      draftTitle.innerHTML = `<b>第 ${model.draftNumber}／6 次刻印</b><span>以下皆為目前構築可合法選擇的印記｜Tab 選擇，Enter 確認</span>`
       for (const card of model.draftCards) {
         const nodes = cardNodes.get(card.id)
         if (nodes === undefined) continue
@@ -181,6 +188,11 @@ export function mountDungeonHud(container: HTMLElement, onSelectMark: (mark: Mar
         nodes.feedback.textContent = card.visibleFeedback
       }
       draft.classList.toggle('visible', model.showDraft)
+      if (model.showDraft && !draftWasVisible) {
+        const firstCard = model.draftCards[0]
+        if (firstCard !== undefined) cardNodes.get(firstCard.id)?.button.focus()
+      }
+      draftWasVisible = model.showDraft
       clearFeedback.classList.toggle('visible', showClearFeedback)
       ending.classList.toggle('visible', model.banner !== null && endingVisible)
       if (model.banner !== null) {

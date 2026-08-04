@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import type { GameState } from '../core/index.js'
+import audioEvents from '../../content/audio-events.json'
+import { CLASS_CARDS } from '../core/class-expansion.js'
+import type { GameEvent, GameState } from '../core/index.js'
+import { RESONANCE_VISUAL_CUES } from '../render/class-visual-contract.js'
 import { materializeOpeningWave } from '../core/test-utils.js'
 import { deriveAudioFrame } from './audio-frame.js'
 
@@ -96,5 +99,35 @@ describe('deriveAudioFrame', () => {
     expect(combat.threat).toBeGreaterThan(0)
     expect(draft.combat).toBe(0)
     expect(draft.base).toBeGreaterThan(0)
+  })
+
+  it('24 張 typed 職業成功事件都走專屬 content cue，沒有退回通用技能聲', () => {
+    const previous = state()
+    const events: GameEvent[] = CLASS_CARDS.map((card) => ({
+      type: 'classEffectResolved', classId: card.classId, cardId: card.id, effect: '驗收成功' as never, targetIds: [],
+    } as GameEvent))
+    const cues = deriveAudioFrame(previous, state({ events })).cues
+    const expected = CLASS_CARDS.map((card) => audioEvents.class_event_map.effects[`${card.classId}/${card.id}`])
+    expect(cues.map((cue) => cue.id)).toEqual(expected)
+    expect(new Set(cues.map((cue) => cue.id)).size).toBe(24)
+    expect(cues.map((cue) => cue.id)).not.toContain('skill-e')
+  })
+
+  it('8 條共鳴成功與每個 typed 拒絕原因都有可解析的音訊因果', () => {
+    const previous = state()
+    const successes: GameEvent[] = RESONANCE_VISUAL_CUES.map((cue) => ({
+      type: 'resonanceResolved', classId: cue.classId, resonance: cue.resonance, targetIds: [],
+    }))
+    const successCues = deriveAudioFrame(previous, state({ events: successes })).cues
+    expect(successCues.map((cue) => cue.id)).toEqual(RESONANCE_VISUAL_CUES.map((cue) => audioEvents.class_event_map.resonances[`${cue.classId}/${cue.resonance}`]))
+    expect(new Set(successCues.map((cue) => cue.id)).size).toBe(8)
+
+    const rejected: GameEvent[] = Object.keys(audioEvents.class_event_map.rejection_reasons).map((reason) => ({
+      type: 'resonanceRejected', classId: 'forgeguard', resonance: '防區反震', reason,
+    } as GameEvent))
+    const rejectionCues = deriveAudioFrame(previous, state({ events: rejected })).cues
+    expect(rejectionCues.map((cue) => cue.id)).toEqual(Object.values(audioEvents.class_event_map.rejection_reasons))
+    expect(new Set(rejectionCues.map((cue) => cue.id)).size).toBe(3)
+    expect(new Set(rejectionCues.map((cue) => cue.waveform)).size).toBe(3)
   })
 })

@@ -9,6 +9,7 @@ import {
   worldToDungeon,
 } from '../visual/dungeon-art.js'
 import { mountDungeonHud } from './dungeon-hud.js'
+import { appendClassIdentityDemo, focusInitialClassChoice, mountClassDraftOverlay } from './class-draft-overlay.js'
 import { createDraftTransition } from './draft-transition.js'
 import { paintDungeon } from './dungeon-view.js'
 import { createGameLoop, type GameLoop } from './game-loop.js'
@@ -19,6 +20,7 @@ import {
   createPrecisionSlowMotion,
 } from './precision-slow-motion.js'
 import { impactVfxTier } from './vfx-tracker.js'
+import { CLASS_LABELS, type ClassId } from '../core/index.js'
 
 const root = document.querySelector<HTMLElement>('#app')
 if (root === null) throw new Error('找不到 #app')
@@ -129,8 +131,10 @@ window.addEventListener('pointerdown', unlockAudio)
 window.addEventListener('keydown', unlockAudio)
 
 let slowMotionAudioActive = false
-const loop: GameLoop = createGameLoop({
-  seed: 'vertical-slice-rework-0.1.0',
+let loop: GameLoop
+function startClassRun(classId: ClassId): void {
+  loop = createGameLoop({
+  seed: 'class-vertical-slice-0.1.0', classId,
   buildInput: () => inputController.buildTickInput(loop.getState().phase),
   onStateAdvanced: (previous, next) => {
     draftTransition.observePhase(next.phase, currentFrameNowMs)
@@ -140,12 +144,32 @@ const loop: GameLoop = createGameLoop({
     }
     audioDirector.handleState(previous, next)
   },
-})
-loopHolder.current = loop
+  })
+  loopHolder.current = loop
+}
+
+const classOverlay = document.createElement('section')
+Object.assign(classOverlay.style, { position: 'absolute', inset: '0', zIndex: '30', display: 'grid', placeItems: 'center', background: 'rgba(8,7,11,.88)', color: '#e6dcc4', fontFamily: 'system-ui,sans-serif', pointerEvents: 'auto' })
+const classPanel = document.createElement('div')
+Object.assign(classPanel.style, { display: 'grid', gap: '12px', textAlign: 'center', maxWidth: '680px' })
+classPanel.innerHTML = '<strong style="font-size:26px;color:#ffd37a">選擇戰鬥姿態</strong><span>固定 seed｜六關短 Run｜左鍵／Q／E 槽位構築</span>'
+let firstClassChoice: HTMLButtonElement | null = null
+for (const classId of ['forgeguard', 'shadowline-hunter'] as const) {
+  const button = document.createElement('button')
+  button.type = 'button'; button.textContent = classId === 'forgeguard' ? `${CLASS_LABELS[classId]}｜守防區、讀格擋、反震解場` : `${CLASS_LABELS[classId]}｜先布線、穿敵群、承擔落點`
+  Object.assign(button.style, { padding: '16px', cursor: 'pointer', color: '#e6dcc4', background: '#211f2a', border: '2px solid #746765', font: 'inherit' })
+  appendClassIdentityDemo(classId, button)
+  button.addEventListener('click', () => { classOverlay.remove(); startClassRun(classId) })
+  classPanel.appendChild(button)
+  if (firstClassChoice === null) firstClassChoice = button
+}
+classOverlay.appendChild(classPanel); stage.appendChild(classOverlay)
+if (firstClassChoice !== null) focusInitialClassChoice(firstClassChoice)
+const classDraft = mountClassDraftOverlay(stage, (cardId) => inputController.submitForgeChoice(cardId))
 
 let previousTimestampMs: number | null = null
 let terminalPhaseStartedMs: number | null = null
-let previousPhase = loop.getState().phase
+let previousPhase: import('../core/index.js').RunPhase | null = null
 let runtimeFailed = false
 let lastHitStopSpawnTick = -1
 let visualFreezeFrames = 0
@@ -159,6 +183,7 @@ function reportRuntimeCrash(error: unknown): void {
 
 function frame(nowMs: number): void {
   try {
+    if (loopHolder.current === null) { requestAnimationFrame(frame); return }
     currentFrameNowMs = nowMs
     if (previousTimestampMs !== null) loop.advanceBy((nowMs - previousTimestampMs) / 1000)
     previousTimestampMs = nowMs
@@ -194,6 +219,7 @@ function frame(nowMs: number): void {
     const draftPresentation = draftTransition.presentation(state.phase, nowMs)
     const hudModel = buildHudViewModel(state, inputController.getBindings())
     hud.update({ ...hudModel, showDraft: hudModel.showDraft && draftPresentation.showDraft }, endingVisible, draftPresentation.showClearFeedback)
+    classDraft.update(hudModel)
     requestAnimationFrame(frame)
   } catch (error) {
     reportRuntimeCrash(error)

@@ -65,6 +65,16 @@ describe('buildHudViewModel：三選一與終局橫幅', () => {
     expect(buildHudViewModel(state({ phase: 'encounter1' })).showDraft).toBe(false)
   })
 
+  it('職業 Run 將鍛造選項、已選槽位卡與共鳴接入 HUD，而不污染 1.0 印記 Draft', () => {
+    const base = state({ classId: 'forgeguard', phase: 'draft', forgeOptions: ['bulwark-hammer', 'fire-hook', 'pressure-furnace-roar'], selectedClassCards: ['bulwark-hammer'], resonanceLog: ['防區反震'] })
+    const vm = buildHudViewModel(base)
+    expect(vm.showDraft).toBe(false)
+    expect(vm.showClassDraft).toBe(true)
+    expect(vm.classDraftCards.map((card) => card.slotBadge)).toEqual(['左鍵', 'Q', 'E'])
+    expect(vm.selectedBuild).toEqual([expect.objectContaining({ id: 'bulwark-hammer', slotBadge: '左鍵' })])
+    expect(vm.resonanceLog).toEqual(['防區反震'])
+  })
+
   it('victory/defeat 階段輸出對應橫幅，提示玩家按 R 重開；其餘階段無橫幅', () => {
     expect(buildHudViewModel(state({ phase: 'victory' })).banner?.title).toBe('餘火未熄')
     expect(buildHudViewModel(state({ phase: 'defeat' })).banner?.title).toBe('餘火熄滅')
@@ -86,6 +96,7 @@ describe('rework 0.1.0 HUD：房間目標與動態 bindings', () => {
       attack: 'KeyJ', dodge: 'KeyK', skillQ: 'KeyU', skillE: 'KeyI',
     })
     expect(vm.actionSlots.map((slot) => slot.binding)).toEqual(['J', 'K', 'U', 'I'])
+    expect(vm.actionSlots.map((slot) => slot.slotBadge)).toEqual(['左鍵', 'Space', 'Q', 'E'])
     expect(vm.roomName).toBe('鑄火祭壇')
     expect(vm.objective).toContain('第 0 次刻印')
   })

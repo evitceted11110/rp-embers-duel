@@ -37,6 +37,14 @@ type RawCue = {
   gain: number
 }
 
+type ClassEventMap = {
+  effects: Record<string, string>
+  resonances: Record<string, string>
+  rejection_reasons: Record<string, string>
+}
+
+const classEventMap = audioEventsJson.class_event_map as ClassEventMap
+
 const cueMap = new Map(
   (audioEventsJson.cues as RawCue[]).map((cue) => [
     cue.id,
@@ -61,6 +69,22 @@ function cue(id: string): AudioCue {
 
 function markCue(markId: MarkId): string {
   return `mark-selected-${markId}`
+}
+
+/**
+ * 職業事件只由 content 的封閉表定義；漏卡與未知共鳴應在測試／開發時立即拋出，
+ * 不能靜默退回通用技能聲而讓 build 的因果消失。
+ */
+function classCue(kind: keyof Pick<ClassEventMap, 'effects' | 'resonances'>, classId: string, identity: string): string {
+  const cueId = classEventMap[kind][`${classId}/${identity}`]
+  if (cueId === undefined) throw new Error(`content/audio-events.json 缺少職業 ${kind} 音訊：${classId}/${identity}`)
+  return cueId
+}
+
+function resonanceRejectedCue(reason: string): string {
+  const cueId = classEventMap.rejection_reasons[reason]
+  if (cueId === undefined) throw new Error(`content/audio-events.json 缺少共鳴拒絕音訊：${reason}`)
+  return cueId
 }
 
 function eventCue(event: GameEvent, state: GameState): string {
@@ -105,6 +129,15 @@ function eventCue(event: GameEvent, state: GameState): string {
       return 'draft-offered'
     case 'markSelected':
       return markCue(event.markId)
+    case 'classCardSelected':
+    case 'resonanceAvailable':
+      return 'draft-offered'
+    case 'resonanceResolved':
+      return classCue('resonances', event.classId, event.resonance)
+    case 'classEffectResolved':
+      return classCue('effects', event.classId, event.cardId)
+    case 'resonanceRejected':
+      return resonanceRejectedCue(event.reason)
     case 'victory':
       return 'victory'
     case 'defeat':

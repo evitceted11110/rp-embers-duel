@@ -61,6 +61,23 @@
 - 第一／二段是單脈衝 triangle，75／90ms，190→110Hz／240→125Hz；第三段是雙脈衝 sawtooth，180ms，310→82Hz。重擊尾頻更低、時長至少是第一段兩倍且有第二拍，因此不是只把同一聲音放大。
 - cue 局部 gain 分別 0.20／0.23／0.28，全部 ≤0.30；effects bus 與 master `DynamicsCompressor` limiter 維持既有路徑，不因同 tick VFX 加強而疊加額外命中 cue，避免削波。
 
+### 雙職業事件語彙（2026-08-04）
+
+`content/audio-events.json` 的 `class_event_map` 是雙職業唯一映射正本。24 張卡以
+`classId/cardId` 解析，8 條共鳴以 `classId/resonance` 解析；任何漏項在開發與測試時直接
+失敗，絕不靜默回退成 `skill-e`。這讓 replay、HUD 與音訊對同一張已投資卡保有同一因果。
+
+- **熔衛**使用低中頻的砧擊、鎖鏈與環狀脈衝（約 94–360Hz）。每張卡以至少兩項
+  waveform、頻率輪廓、節奏或時長區分；共鳴比一般卡多一拍或更長的收束尾音，但局部 gain
+  不超過 0.29，避免蓋住敵方預兆。
+- **影線獵人**使用高頻切線、回身與端點躍遷（約 330–1120Hz）。不是把熔衛聲音升高：
+  其 cue 以短促鋸齒／正弦掃頻、交錯節奏與向上端點明確表現路徑承諾。
+- **共鳴拒絕**分三類：缺少前置物為低三角雙拍、錯誤幾何／落點為方波三拍、時機／格擋
+  失敗為較高正弦雙拍。HUD 保留原始文字 reason，聲音只提供可立即辨識的類別，永不取代畫面。
+
+同一個 logical tick 若有危險預兆和職業成功，預兆 cue 仍先由 `enemyTransitionCues` 排入 frame；
+職業 cue 均維持 0ms 首拍、effects gain ≤0.30 並走既有 limiter，因此 build 成功不會以音量壓過反應資訊。
+
 ## 首次互動與生命週期
 
 - 載入頁面時只建立 `AudioDirector`，不建立 `AudioContext`，也不播放。

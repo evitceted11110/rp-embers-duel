@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createEnemyAttackGeometry, createPlayerAttackGeometry, createRun, THRALL_CONE_RADIUS_UNITS, type EnemyKind, type MarkId, type RunPhase } from '../core/index.js'
 import { DUNGEON_ARENA_RECT, DUNGEON_HEIGHT, DUNGEON_WIDTH, WORLD_ANCHOR, WORLD_PIXELS_PER_UNIT, cardinalDirection, enemySpriteIdentity, markGlyphIdentity, roomZone, worldToDungeon } from '../visual/dungeon-art.js'
 import { ARENA_BOUNDS } from '../core/index.js'
-import { attackWindowCue, describeDungeonScene, heroPose, markVisualCues, precisionSlowMotionVisualCue, telegraphCue } from './dungeon-view.js'
+import { attackWindowCue, describeDungeonScene, heroPose, markVisualCues, pivotSweepVisualCue, precisionSlowMotionVisualCue, telegraphCue } from './dungeon-view.js'
 import { INITIAL_VFX_STATE } from './vfx-tracker.js'
 import { materializeOpeningWave } from '../core/test-utils.js'
 
@@ -43,6 +43,12 @@ describe('玩家 sprite 動畫由公開狀態／事件驅動', () => {
     expect(precisionSlowMotionVisualCue(true, 0.5)).toMatchObject({ visible: true, color: '#74d4cf' })
     expect(precisionSlowMotionVisualCue(true, 0.5).overlayAlpha).toBeGreaterThan(0)
     expect(precisionSlowMotionVisualCue(false, 1)).toEqual({ visible: false, color: '#74d4cf', overlayAlpha: 0 })
+  })
+
+  it('守角轉掃有 renderer 可讀的中央 VFX 契約，不會退化成只有事件文字', () => {
+    const base = createRun('pivot-vfx')
+    expect(pivotSweepVisualCue(base)).toEqual({ visible: false, position: null, direction: null, radiusUnits: 0 })
+    expect(pivotSweepVisualCue({ ...base, player: { ...base.player, classObjects: { ...base.player.classObjects, pivotSweep: { position: { x: 1, y: -1 }, direction: { x: 0, y: 1 }, ticksRemaining: 12 } } } })).toEqual({ visible: true, position: { x: 1, y: -1 }, direction: { x: 0, y: 1 }, radiusUnits: 1.4 })
   })
 
   it('面向依主軸分成上、下、左、右四種，不再只分左右', () => {

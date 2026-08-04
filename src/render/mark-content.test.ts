@@ -29,6 +29,12 @@ describe('draftCardContent：三選一卡片資料來自 content/marks.json 正�
     const card = draftCardContent('precision-afterimage')
     expect(card.visibleFeedback).toContain('殘影')
   })
+
+  it('卡片明確標示它會改寫的操作槽，並保留多槽印記的完整資訊', () => {
+    expect(draftCardContent('cracking-flame-combo').affectedSlots).toEqual(['attack'])
+    expect(draftCardContent('ember-core').affectedSlots).toEqual(['dodge', 'skillQ'])
+    expect(draftCardContent('ember-sacrifice').affectedSlots).toEqual(['skillE'])
+  })
 })
 
 describe('數值參數讀自 content/marks.json，不寫死複製一份魔法數字', () => {

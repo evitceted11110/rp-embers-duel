@@ -10,7 +10,7 @@
  * 位置可以，離散的 `combo.phase` 不行），複雜度與收益不成比例。若 Gate 3 真人測試回饋
  * 「動作看起來卡」，這是最適合回頭加的地方（見交付報告）。
  */
-import { createRecorder, type CrashDump, type GameState, type TickInput } from '../core/index.js'
+import { createRecorder, type ClassId, type CrashDump, type GameState, type TickInput } from '../core/index.js'
 import { createFixedStepLoop } from './fixed-step-loop.js'
 import { INITIAL_VFX_STATE, updateVfxState, type VfxState } from './vfx-tracker.js'
 
@@ -25,6 +25,7 @@ export type GameLoop = {
 
 export type CreateGameLoopOptions = {
   readonly seed: string
+  readonly classId?: ClassId | null
   /** 每個邏輯 tick 呼叫一次，組出這一 tick 要餵給 core 的輸入。 */
   buildInput(): TickInput
   /** 音訊／遙測等唯讀消費者；每個 logical tick 呼叫，不能反向修改 core。 */
@@ -32,7 +33,7 @@ export type CreateGameLoopOptions = {
 }
 
 export function createGameLoop(options: CreateGameLoopOptions): GameLoop {
-  const recorder = createRecorder(options.seed)
+  const recorder = createRecorder(options.seed, options.classId ?? null)
   let vfx: VfxState = INITIAL_VFX_STATE
 
   const loop = createFixedStepLoop<GameState>(recorder.getState(), {

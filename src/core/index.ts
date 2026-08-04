@@ -4,6 +4,13 @@
  */
 export { createRun, tick } from './run.js'
 export { createRecorder, replay, replayHistory, type CrashDump, type Recorder } from './crash-dump.js'
+export {
+  collectRuntimeTelemetry,
+  type CardRuntimeTelemetry,
+  type ResonanceRuntimeTelemetry,
+  type RoomRuntimeTelemetry,
+  type RuntimeTelemetry,
+} from './runtime-telemetry.js'
 export { neutralInput } from './types.js'
 export { ARENA_BOUNDS, clampToArena, isInsideArena } from './arena.js'
 export {
@@ -36,6 +43,7 @@ export {
 export { EMBER_CORE, PRECISION_AFTERIMAGE } from './content.js'
 export { createEnemyAttackGeometry, enemyGeometryContains } from './enemy-geometry.js'
 export { DEFAULT_FORGE, FORGE_CARDS, applyForgeCard, forgeChoices } from './forge.js'
+export { CLASS_CARDS, CLASS_LABELS, classCard, classDraftOptions, resonanceFor, type ClassCard, type ClassId, type ClassSlot } from './class-expansion.js'
 export { MAX_SIMULTANEOUS_ENEMIES, WAVE_TELEGRAPH_TICKS } from './encounter-director.js'
 export {
   circleIntersectsSector,

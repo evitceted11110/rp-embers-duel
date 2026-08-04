@@ -58,6 +58,7 @@ export function assembleTickInput(
   pendingDraftChoice: MarkId | null,
   restartHeld: boolean,
   aim: Readonly<{ x: number; y: number }> = { x: 0, y: 0 },
+  pendingForgeChoice: string | null = null,
 ): TickInput {
   const { moveX, moveY } = computeMoveAxis(actionStates)
   return {
@@ -70,7 +71,7 @@ export function assembleTickInput(
     skillQ: actionStates.skillQ,
     skillE: actionStates.skillE,
     draftChoice: phase === 'draft' ? pendingDraftChoice : null,
-    forgeChoice: null,
+    forgeChoice: phase === 'draft' ? pendingForgeChoice : null,
     restart: restartHeld,
   }
 }

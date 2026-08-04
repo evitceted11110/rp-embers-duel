@@ -60,6 +60,7 @@ export type InputController = {
   buildTickInput(phase: RunPhase): TickInput
   /** 三選一 UI 呼叫：下一次 `buildTickInput` 會帶上這個選擇，之後立刻清空。 */
   submitDraftChoice(markId: MarkId): void
+  submitForgeChoice(cardId: string): void
   /** 進入選卡前丟棄最後一擊的 held 與尚未消費 edge，要求新的明確操作。 */
   resetForDraft(): void
   /** 重綁完成後呼叫，讓 controller 立刻改用新的鍵位判定。 */
@@ -89,6 +90,7 @@ export function createInputController(options: CreateInputControllerOptions): In
   let bindings = options.bindings
   const heldCodes = new Set<string>()
   let pendingDraftChoice: MarkId | null = null
+  let pendingForgeChoice: string | null = null
   let lastPointerAim: Readonly<{ x: number; y: number }> | null = null
 
   const onKeyDown = (event: KeyCodeEvent): void => {
@@ -139,16 +141,19 @@ export function createInputController(options: CreateInputControllerOptions): In
       const actionStates = computeActionStates(heldCodes, bindings, config)
       const restartHeld = heldCodes.has(RESTART_CODE)
       const aim = lastPointerAim ?? options.getFallbackAim?.() ?? { x: 0, y: 0 }
-      const result = assembleTickInput(actionStates, phase, pendingDraftChoice, restartHeld, aim)
+      const result = assembleTickInput(actionStates, phase, pendingDraftChoice, restartHeld, aim, pendingForgeChoice)
       pendingDraftChoice = null
+      pendingForgeChoice = null
       return result
     },
     submitDraftChoice(markId: MarkId): void {
       pendingDraftChoice = markId
     },
+    submitForgeChoice(cardId: string): void { pendingForgeChoice = cardId },
     resetForDraft(): void {
       clearHeldState()
       pendingDraftChoice = null
+      pendingForgeChoice = null
     },
     setBindings(next: BindingsState): void {
       bindings = next

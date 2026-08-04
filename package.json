@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.core.json && tsc --noEmit -p tsconfig.app.json",
     "test": "vitest run",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "sim:gate2": "tsx sim/report.ts"
+    "sim:gate2": "tsx sim/report.ts",
+    "sim:class-balance": "tsx sim/class-expansion-balance-report.ts"
   },
   "dependencies": {
     "@rogue-paradise/platform-sdk": "^0.1.0",

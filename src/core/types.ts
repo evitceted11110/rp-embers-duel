@@ -1,5 +1,6 @@
 import type { Vector2 } from './vector.js'
 import type { PlayerAttackGeometry } from './player-attack-geometry.js'
+import type { ClassId } from './class-expansion.js'
 
 // ---------------------------------------------------------------------------
 // 輸入：純資料，不是事件（硬規定 4）。
@@ -125,6 +126,83 @@ export type AfterimageObject = {
   readonly ticksRemaining: number
 }
 
+/** Gate 2 職業切片留下於戰場中央、可由 renderer 直接描繪的物件。 */
+export type ForgeNailObject = {
+  readonly position: Vector2
+  readonly ticksRemaining: number
+  /** 被重錘壓進防區的敵人；只會在成功格擋後由反震兌現。 */
+  readonly pressuredEnemyIds: readonly string[]
+  /** 環鑄界線把完整防區換成帶缺口的守角；省略時仍是原本的圓形防區。 */
+  readonly arcFacing?: Vector2
+}
+
+export type ShadowLineObject = {
+  readonly start: Vector2
+  readonly end: Vector2
+  readonly ticksRemaining: number
+  /** 穿過線路的敵人。第三段命中後才會變成可被 E 回收的殘切。 */
+  readonly markedEnemyIds: readonly string[]
+  readonly residualEnemyIds: readonly string[]
+  /** 逆標吊點：線端跟隨第一個被命中的敵人，讓其預兆成為可讀的風險訊號。 */
+  readonly anchorEnemyId?: string
+  /** 斷端落刃留下的單次撤離線，不混同於雙線折返。 */
+  readonly kind?: 'double-line' | 'return-exit' | 'loop-tether'
+  /** 環扣索的彎折控制點；省略時畫為原本直線。 */
+  readonly curveControl?: Vector2
+  /** 釘身換位留下的可由跨線借位作用的殘影。 */
+  readonly swappedEnemyId?: string
+}
+
+export type BreachPointObject = {
+  readonly enemyId: string
+  readonly position: Vector2
+  readonly ticksRemaining: number
+}
+
+export type FacingLockObject = {
+  readonly direction: Vector2
+  readonly ticksRemaining: number
+}
+
+/** 守角轉軸的短命掃擊軌跡；即使沒有裂盾楔點也必須留下可見的格擋回饋。 */
+export type PivotSweepObject = {
+  readonly position: Vector2
+  readonly direction: Vector2
+  readonly ticksRemaining: number
+}
+
+/** 定錨回擊命中後留下的火索；熔鎖退讓只能沿這條已看見的路徑回防。 */
+export type ForgeTetherObject = {
+  readonly start: Vector2
+  readonly end: Vector2
+  readonly ticksRemaining: number
+}
+
+/** 熔鎖退讓／跨線借位的短命路徑，供戰場中央而非 HUD 呈現結果。 */
+export type ClassPathObject = {
+  readonly start: Vector2
+  readonly end: Vector2
+  readonly ticksRemaining: number
+}
+
+export type ClassObjects = {
+  readonly forgeNail: ForgeNailObject | null
+  readonly shadowLine: ShadowLineObject | null
+  /** 雙釘封口的第二枚釘；未選該卡與 1.0 路徑均不建立此欄位。 */
+  readonly sealNail?: ForgeNailObject
+  /** 雙線折返的第二條短命線；未選該卡與 1.0 路徑均不建立此欄位。 */
+  readonly returnLine?: ShadowLineObject
+  /** 裂盾楔擊留在戰場的可轉掃楔點。 */
+  readonly breachPoint?: BreachPointObject
+  /** 裂盾重擊結束前鎖住面向，不能把承諾角度改成追蹤。 */
+  readonly facingLock?: FacingLockObject
+  /** 守角轉軸成功格擋時的可視轉掃，不以 HUD 文字取代。 */
+  readonly pivotSweep?: PivotSweepObject
+  readonly forgeTether?: ForgeTetherObject
+  readonly moltenLock?: ClassPathObject
+  readonly crossBorrow?: ClassPathObject
+}
+
 export type PlayerState = {
   readonly position: Vector2
   /** 正規化後的面向方向，移動輸入為零時維持上一次的方向。 */
@@ -149,6 +227,8 @@ export type PlayerState = {
   readonly aftershockBonusReady: boolean
   /** 鏡甲反傷 Q 的完全格擋姿態。 */
   readonly mirrorStanceTicksRemaining: number
+  /** 職業卡只透過此純資料留下戰場物件；1.0 路徑永遠維持兩者皆為 null。 */
+  readonly classObjects: ClassObjects
 }
 
 // ---------------------------------------------------------------------------
@@ -227,6 +307,45 @@ export type GameEvent =
   | { readonly type: 'encounterCleared'; readonly encounter: EncounterId }
   | { readonly type: 'draftOffered' }
   | { readonly type: 'markSelected'; readonly markId: MarkId }
+  | { readonly type: 'classCardSelected'; readonly cardId: string; readonly classId: ClassId }
+  | { readonly type: 'resonanceAvailable'; readonly classId: ClassId; readonly resonance: string }
+  | { readonly type: 'resonanceResolved'; readonly classId: ClassId; readonly resonance: string; readonly targetIds: readonly string[] }
+  /**
+   * 同槽卡可疊合時，每張已投資卡都留下自己的可觀察結算。
+   * 這不能以另一張卡的共鳴事件代替，否則 HUD 與 replay 無法判斷哪張卡真的生效。
+   */
+  | { readonly type: 'classEffectResolved'; readonly classId: 'forgeguard'; readonly cardId: 'pressure-furnace-roar'; readonly effect: '反壓反震'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'forgeguard'; readonly cardId: 'iron-curtain-recall'; readonly effect: '鐵幕收束'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'forgeguard'; readonly cardId: 'shield-wedge'; readonly effect: '裂盾楔點'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'forgeguard'; readonly cardId: 'corner-pivot'; readonly effect: '守角轉掃'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'forgeguard'; readonly cardId: 'anchored-riposte'; readonly effect: '定錨回擊'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'forgeguard'; readonly cardId: 'bulwark-hammer'; readonly effect: '壁壘重錘'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'forgeguard'; readonly cardId: 'heated-rotation'; readonly effect: '灼鐵回旋'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'forgeguard'; readonly cardId: 'double-nail-seal'; readonly effect: '雙釘封口'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'forgeguard'; readonly cardId: 'fire-hook'; readonly effect: '引火鉤'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'forgeguard'; readonly cardId: 'ring-forged-boundary'; readonly effect: '環鑄界線'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'forgeguard'; readonly cardId: 'reforge-relocation'; readonly effect: '回爐移釘'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'forgeguard'; readonly cardId: 'molten-lock-retreat'; readonly effect: '熔鎖退讓'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'shadowline-hunter'; readonly cardId: 'stitched-corner'; readonly effect: '縫影折角'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'shadowline-hunter'; readonly cardId: 'reverse-mark-anchor'; readonly effect: '逆標吊點'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'shadowline-hunter'; readonly cardId: 'terminal-drop'; readonly effect: '斷端落刃'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'shadowline-hunter'; readonly cardId: 'pinned-body-swap'; readonly effect: '釘身換位'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'shadowline-hunter'; readonly cardId: 'loop-tether'; readonly effect: '環扣索'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'shadowline-hunter'; readonly cardId: 'cross-line-borrow'; readonly effect: '跨線借位'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'shadowline-hunter'; readonly cardId: 'crossed-sheath'; readonly effect: '交錯收刀'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'shadowline-hunter'; readonly cardId: 'broken-shadow-step'; readonly effect: '斷影追步'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'shadowline-hunter'; readonly cardId: 'double-line-return'; readonly effect: '雙線折返'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'shadowline-hunter'; readonly cardId: 'gap-marking'; readonly effect: '獵隙標定'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'shadowline-hunter'; readonly cardId: 'returning-rend'; readonly effect: '回身割裂'; readonly targetIds: readonly string[] }
+  | { readonly type: 'classEffectResolved'; readonly classId: 'shadowline-hunter'; readonly cardId: 'residual-collection'; readonly effect: '殘切回收'; readonly targetIds: readonly string[] }
+  /** 職業共鳴的輸入被拒絕時，將可讀原因留給 HUD／QA；不把失敗藏成無聲 no-op。 */
+  | { readonly type: 'resonanceRejected'; readonly classId: 'forgeguard'; readonly resonance: '防區反震'; readonly reason: '防區外' | '未面向爐釘' | '未受壓' | '未成功格擋' }
+  | { readonly type: 'resonanceRejected'; readonly classId: 'forgeguard'; readonly resonance: '封口回收'; readonly reason: '缺少雙釘' | '熔鏈外' | '未受壓' | '未成功格擋' }
+  | { readonly type: 'resonanceRejected'; readonly classId: 'shadowline-hunter'; readonly resonance: '折返處刑'; readonly reason: '缺少折返線' | '無標定目標' | '錯誤落點' }
+  | { readonly type: 'resonanceRejected'; readonly classId: 'forgeguard'; readonly resonance: '楔點轉掃'; readonly reason: '缺少裂盾點' | '未成功格擋' | '轉掃無目標' }
+  | { readonly type: 'resonanceRejected'; readonly classId: 'shadowline-hunter'; readonly resonance: '吊點脫身'; readonly reason: '缺少危險吊點' | '吊點未預兆' | '未落於吊點' }
+  | { readonly type: 'resonanceRejected'; readonly classId: 'forgeguard'; readonly resonance: '錨索退讓'; readonly reason: '缺少火索' | '缺少爐釘' | '未成功格擋' }
+  | { readonly type: 'resonanceRejected'; readonly classId: 'shadowline-hunter'; readonly resonance: '交線換身'; readonly reason: '缺少換位殘切' | '缺少第二線' | '借位失敗' }
   | { readonly type: 'victory' }
   | { readonly type: 'defeat' }
   | { readonly type: 'bossPhaseChanged'; readonly phase: 2 | 3 }
@@ -251,6 +370,10 @@ export type GameState = {
   readonly encounterIndex: number
   readonly selectedMark: MarkId | null
   readonly selectedMarks: readonly MarkId[]
+  /** null 為已發行的 1.0 路徑；有值時啟用 Gate 2 雙職業 runtime 切片。 */
+  readonly classId: ClassId | null
+  readonly selectedClassCards: readonly string[]
+  readonly resonanceLog: readonly string[]
   readonly forge: ForgeLoadout
   readonly draftOptions: readonly MarkId[]
   readonly forgeOptions: readonly string[]

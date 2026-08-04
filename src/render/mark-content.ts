@@ -11,11 +11,13 @@
  */
 import marksJson from '../../content/marks.json'
 import type { MarkId } from '../core/index.js'
+import { draftActionSlots, type DraftActionSlot } from './action-slot-content.js'
 
 type MarkJson = {
   readonly id: string
   readonly name: string
   readonly school: 'ember' | 'shadow' | 'guard'
+  readonly changes_actions: readonly string[]
   readonly visible_feedback: string
   readonly decision_change: string
   readonly effect: Record<string, unknown>
@@ -45,6 +47,8 @@ export type DraftCardContent = {
   /** 一句話點出這枚印記改寫了哪個按鍵/動作，渲染層自撰（不是 content 正本，只是 UI 標籤）。 */
   readonly tagline: string
   readonly visibleFeedback: string
+  /** 此卡會改寫的固定操作槽；供 Draft 徽章與 HUD 使用相同語彙。 */
+  readonly affectedSlots: readonly DraftActionSlot[]
 }
 
 const DRAFT_TAGLINES: Record<MarkId, string> = {
@@ -86,6 +90,7 @@ export function draftCardContent(id: MarkId): DraftCardContent {
     school: mark.school,
     tagline: DRAFT_TAGLINES[id],
     visibleFeedback: mark.visible_feedback,
+    affectedSlots: draftActionSlots(mark.changes_actions),
   }
 }
 

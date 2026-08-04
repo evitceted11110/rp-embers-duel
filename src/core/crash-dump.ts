@@ -5,9 +5,11 @@
  */
 import { createRun, tick } from './run.js'
 import type { GameState, TickInput } from './types.js'
+import type { ClassId } from './class-expansion.js'
 
 export type CrashDump = {
   readonly seed: string
+  readonly classId?: ClassId | null
   readonly inputLog: readonly TickInput[]
 }
 
@@ -19,8 +21,8 @@ export type Recorder = {
   dump(): CrashDump
 }
 
-export function createRecorder(seed: string): Recorder {
-  let state = createRun(seed)
+export function createRecorder(seed: string, classId: ClassId | null = null): Recorder {
+  let state = createRun(seed, classId)
   const inputLog: TickInput[] = []
   return {
     tick(input: TickInput): GameState {
@@ -32,14 +34,14 @@ export function createRecorder(seed: string): Recorder {
       return state
     },
     dump(): CrashDump {
-      return { seed, inputLog: [...inputLog] }
+      return { seed, classId, inputLog: [...inputLog] }
     },
   }
 }
 
 /** 從 crash dump 重播出最終狀態。 */
 export function replay(dump: CrashDump): GameState {
-  let state = createRun(dump.seed)
+  let state = createRun(dump.seed, dump.classId ?? null)
   for (const input of dump.inputLog) {
     state = tick(state, input)
   }
@@ -48,7 +50,7 @@ export function replay(dump: CrashDump): GameState {
 
 /** 重播並回傳每一 tick 的完整狀態序列，供「決定性重播逐 tick 相同」測試比對使用。 */
 export function replayHistory(dump: CrashDump): GameState[] {
-  let state = createRun(dump.seed)
+  let state = createRun(dump.seed, dump.classId ?? null)
   const history: GameState[] = [state]
   for (const input of dump.inputLog) {
     state = tick(state, input)

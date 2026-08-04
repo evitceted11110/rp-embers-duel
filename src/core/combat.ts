@@ -50,6 +50,7 @@ import {
   type PlayerAttackGeometry,
 } from './player-attack-geometry.js'
 import type { ComboState, EnemyState, GameEvent, MarkId, PlayerState, TickInput } from './types.js'
+import type { ClassId } from './class-expansion.js'
 import { add, distance, lerp, normalize, quadraticBezier, scale, sub, type Vector2 } from './vector.js'
 
 function comboDamage(hitIndex: 1 | 2 | 3): number {
@@ -76,8 +77,11 @@ export function resolvePlayerTick(
   input: TickInput,
   previousInput: TickInput,
   selectedMarks: readonly MarkId[],
+  classId: ClassId | null = null,
+  selectedClassCards: readonly string[] = [],
 ): PlayerTickResult {
   const hasMark = (id: MarkId): boolean => selectedMarks.includes(id)
+  const hasClassCard = (id: string): boolean => selectedClassCards.includes(id)
   const events: GameEvent[] = []
   let workingEnemies: EnemyState[] = enemies.map((e) => ({ ...e }))
 
@@ -97,6 +101,11 @@ export function resolvePlayerTick(
   let pursuitTicks = player.pursuitTicksRemaining
   let aftershockBonusReady = player.aftershockBonusReady
   let mirrorStanceTicks = player.mirrorStanceTicksRemaining
+  let classObjects = player.classObjects
+  if (classObjects.facingLock !== undefined && classObjects.facingLock.ticksRemaining > 0) {
+    // 裂盾楔擊已承諾的重擊方向不能被游標偷轉；結束後才重新交還瞄準。
+    facing = classObjects.facingLock.direction
+  }
 
   const attackEdge = input.attack && !previousInput.attack
   const dodgeEdge = input.dodge && !previousInput.dodge
@@ -175,11 +184,20 @@ export function resolvePlayerTick(
     return best
   }
 
+  function distanceToSegment(point: Vector2, start: Vector2, end: Vector2): number {
+    const segment = sub(end, start)
+    const lengthSquared = segment.x * segment.x + segment.y * segment.y
+    if (lengthSquared <= 0.0001) return distance(point, start)
+    const offset = sub(point, start)
+    const t = Math.max(0, Math.min(1, (offset.x * segment.x + offset.y * segment.y) / lengthSquared))
+    return distance(point, add(start, scale(segment, t)))
+  }
+
   function performComboHit(current: ComboState): ComboState {
     const hitIndex = current.hitIndex as 1 | 2 | 3
     const cracking = hitIndex === 3 && hasMark('cracking-flame-combo')
     const pursuit = hitIndex === 1 && pursuitTicks > 0 && hasMark('pursuit-strike')
-    const geometry = createPlayerAttackGeometry({
+    let geometry = createPlayerAttackGeometry({
       position,
       facing,
       hitIndex,
@@ -187,6 +205,42 @@ export function resolvePlayerTick(
       pursuitActive: pursuit,
       guardStacks,
     })
+    if (classId === 'forgeguard' && hasClassCard('bulwark-hammer') && hitIndex === 3) {
+      // 原地半圓重錘：用更寬的幾何換掉追擊，讓第三段服務防區而不是追人。
+      geometry = { ...geometry, range: 2.25, halfAngle: Math.PI * 0.72, variant: 'bulwark' }
+    }
+    if (classId === 'shadowline-hunter' && hasClassCard('broken-shadow-step') && hitIndex === 3) {
+      // 窄長切線：只有穿過已建立的影線才會留下可回收的殘切。
+      geometry = { ...geometry, range: 2.45, halfAngle: Math.PI * 0.18, variant: 'pursuit' }
+    }
+    if (classId === 'shadowline-hunter' && hasClassCard('crossed-sheath') && hitIndex === 3) {
+      // 側滑回斬取代直穿：少了追身位移，但為被標定目標留下較可靠切口。
+      geometry = { ...geometry, range: 2.1, halfAngle: Math.PI * 0.48, variant: 'bulwark' }
+      const side = { x: -facing.y, y: facing.x }
+      position = clampToArena(add(position, scale(side, 0.65)))
+    }
+    const stitchedCorner = classId === 'shadowline-hunter' && hasClassCard('stitched-corner') && hitIndex === 3
+    const anchoredRiposte = classId === 'forgeguard' && hasClassCard('anchored-riposte') && hitIndex === 3
+    const pinnedBodySwap = classId === 'shadowline-hunter' && hasClassCard('pinned-body-swap') && hitIndex === 3
+    if (classId === 'forgeguard' && hasClassCard('shield-wedge') && hitIndex === 3) {
+      // 窄長楔擊：只承諾一個角度，並在命中點留下必須靠 E 格擋兌現的裂盾點。
+      geometry = { ...geometry, range: 2.8, halfAngle: Math.PI * 0.13, variant: 'pursuit' }
+      classObjects = { ...classObjects, facingLock: { direction: facing, ticksRemaining: secondsToTicks(0.42) } }
+    }
+    if (stitchedCorner) {
+      const line = classObjects.shadowLine
+      if (line === null) {
+        events.push({ type: 'comboWhiff', geometry })
+        return { ...current, phase: 'active', phaseTicksRemaining: secondsToTicks(ATTACK_ACTIVE_TIMES_S[hitIndex - 1]!), attackGeometry: geometry }
+      }
+      // 沿既有線切至最近交點後才向游標補斬：沒有預先布線就沒有第三段收益。
+      const segment = sub(line.end, line.start)
+      const lengthSquared = segment.x * segment.x + segment.y * segment.y
+      const offset = sub(position, line.start)
+      const t = lengthSquared <= 0.0001 ? 0 : Math.max(0, Math.min(1, (offset.x * segment.x + offset.y * segment.y) / lengthSquared))
+      position = clampToArena(add(line.start, scale(segment, t)))
+      geometry = { ...geometry, origin: position, range: 2.2, halfAngle: Math.PI * 0.26, variant: 'pursuit' }
+    }
     position = geometry.origin
     const target = nearestLivingHitByAttack(geometry)
     if (target !== undefined) {
@@ -195,6 +249,67 @@ export function resolvePlayerTick(
       const damage = baseDamage * bonus
       damageEnemy(target.id, damage)
       recoilEnemy(target.id, hitIndex, position)
+      if (classId === 'forgeguard' && hasClassCard('bulwark-hammer') && hitIndex === 3 && classObjects.forgeNail !== null) {
+        const pressuredEnemyIds = workingEnemies
+          .filter((enemy) => enemy.hp > 0 && distance(enemy.position, classObjects.forgeNail!.position) <= 2.4)
+          .map((enemy) => enemy.id)
+        classObjects = { ...classObjects, forgeNail: { ...classObjects.forgeNail, pressuredEnemyIds } }
+        events.push({ type: 'classEffectResolved', classId: 'forgeguard', cardId: 'bulwark-hammer', effect: '壁壘重錘', targetIds: pressuredEnemyIds })
+      }
+      if (classId === 'shadowline-hunter' && hasClassCard('broken-shadow-step') && hitIndex === 3 && classObjects.shadowLine?.markedEnemyIds.includes(target.id)) {
+        classObjects = { ...classObjects, shadowLine: { ...classObjects.shadowLine, residualEnemyIds: [...classObjects.shadowLine.residualEnemyIds, target.id] } }
+        events.push({ type: 'classEffectResolved', classId: 'shadowline-hunter', cardId: 'broken-shadow-step', effect: '斷影追步', targetIds: [target.id] })
+      }
+      if (classId === 'shadowline-hunter' && hasClassCard('crossed-sheath') && hitIndex === 3 && classObjects.shadowLine?.markedEnemyIds.includes(target.id)) {
+        classObjects = { ...classObjects, shadowLine: { ...classObjects.shadowLine, residualEnemyIds: [...new Set([...classObjects.shadowLine.residualEnemyIds, target.id])] } }
+        events.push({ type: 'classEffectResolved', classId: 'shadowline-hunter', cardId: 'crossed-sheath', effect: '交錯收刀', targetIds: [target.id] })
+      }
+      if (classId === 'forgeguard' && hasClassCard('heated-rotation') && hitIndex === 3 && classObjects.forgeNail !== null && distance(position, classObjects.forgeNail.position) <= 2.4) {
+        // 防區內才補上慢速外掃；離區時刻意不補傷害／擊退，讓守點成為真取捨。
+        const rotationTargetIds: string[] = []
+        for (const enemy of workingEnemies) {
+          if (enemy.hp > 0 && enemy.id !== target.id && distance(enemy.position, classObjects.forgeNail.position) <= 2.6) {
+            damageEnemy(enemy.id, comboDamage(1))
+            knockback(enemy.id, classObjects.forgeNail.position)
+            rotationTargetIds.push(enemy.id)
+          }
+        }
+        if (rotationTargetIds.length > 0) events.push({ type: 'classEffectResolved', classId: 'forgeguard', cardId: 'heated-rotation', effect: '灼鐵回旋', targetIds: rotationTargetIds })
+      }
+      if (classId === 'forgeguard' && hasClassCard('shield-wedge') && hitIndex === 3) {
+        classObjects = { ...classObjects, breachPoint: { enemyId: target.id, position: target.position, ticksRemaining: secondsToTicks(5.2) } }
+        events.push({ type: 'classEffectResolved', classId: 'forgeguard', cardId: 'shield-wedge', effect: '裂盾楔點', targetIds: [target.id] })
+      }
+      if (stitchedCorner) {
+        events.push({ type: 'classEffectResolved', classId: 'shadowline-hunter', cardId: 'stitched-corner', effect: '縫影折角', targetIds: [target.id] })
+      }
+      if (anchoredRiposte && classObjects.forgeNail !== null) {
+        // 定錨回擊不追著第三段的目標走：命中後沿可見火索退半步回防，
+        // 之後只有熔鎖退讓成功格擋才能把這條路徑兌現成真正撤離。
+        const tetherStart = position
+        const towardNail = normalize(sub(classObjects.forgeNail.position, position))
+        position = clampToArena(add(position, scale(towardNail, Math.min(0.7, distance(position, classObjects.forgeNail.position)))))
+        classObjects = { ...classObjects, forgeTether: { start: tetherStart, end: classObjects.forgeNail.position, ticksRemaining: secondsToTicks(4.6) } }
+        events.push({ type: 'classEffectResolved', classId: 'forgeguard', cardId: 'anchored-riposte', effect: '定錨回擊', targetIds: [target.id] })
+      }
+      if (pinnedBodySwap && classObjects.shadowLine?.markedEnemyIds.includes(target.id)) {
+        // 只有先由 Q 標記同一敵人才交換位置；沒有標記時第三段仍只是短斬，
+        // 不把玩家免費送穿敵群。
+        const origin = position
+        position = clampToArena(target.position)
+        workingEnemies = workingEnemies.map((enemy) => enemy.id === target.id
+          ? { ...enemy, position: origin, velocity: { x: 0, y: 0 }, locomotion: 'recover' }
+          : enemy)
+        classObjects = {
+          ...classObjects,
+          shadowLine: {
+            ...classObjects.shadowLine,
+            residualEnemyIds: [...new Set([...classObjects.shadowLine.residualEnemyIds, target.id])],
+            swappedEnemyId: target.id,
+          },
+        }
+        events.push({ type: 'classEffectResolved', classId: 'shadowline-hunter', cardId: 'pinned-body-swap', effect: '釘身換位', targetIds: [target.id] })
+      }
       if (cracking) for (const enemy of workingEnemies) if (enemy.id !== target.id && enemy.hp > 0 && distance(enemy.position, position) <= markEffectNumber('cracking-flame-combo', 'cone_range_units')) damageEnemy(enemy.id, markEffectNumber('cracking-flame-combo', 'secondary_splash_damage'))
       if (pursuit) pursuitTicks = 0
       events.push({ type: 'comboHit', hitIndex, damage, targetId: target.id, geometry })
@@ -398,7 +513,105 @@ export function resolvePlayerTick(
   //    為基礎版突進斬。
   // ---------------------------------------------------------------------
   if (qEdge && qCooldown <= 0) {
-    if (hasMark('mirror-plating')) {
+    if (classId === 'forgeguard' && (hasClassCard('double-nail-seal') || hasClassCard('fire-hook') || hasClassCard('ring-forged-boundary') || hasClassCard('reforge-relocation'))) {
+      // 同槽卡不是替換關係：雙釘決定可維持的防區數，引火鉤則在每次落釘時
+      // 額外拉近邊緣敵人。兩者同時持有時，第二次 Q 仍能造第二枚釘，且兩次
+      // 都會保有鉤子的可觀察拉扯。
+      const hasDoubleNail = hasClassCard('double-nail-seal')
+      const hasFireHook = hasClassCard('fire-hook')
+      const hasRingBoundary = hasClassCard('ring-forged-boundary')
+      const hasReforgeRelocation = hasClassCard('reforge-relocation')
+      const nailPosition = clampToArena(add(position, scale(facing, hasDoubleNail ? 2.15 : 2.4)))
+      let doubleNailTargetIds: readonly string[] | undefined
+      if (hasReforgeRelocation && classObjects.forgeNail !== null) {
+        // 回爐移釘不是多一個免費安全點：原釘整枚離開，防區與受壓名單一併重置。
+        // 若玩家先建立雙釘，第二枚仍留在原地，清楚暴露「移哪一端」的風險。
+        // 移釘後仍需活過 Q 冷卻，否則「再按 Q 拖移」在真實流程永遠不能成立。
+        classObjects = { ...classObjects, forgeNail: { position: nailPosition, ticksRemaining: secondsToTicks(8.2), pressuredEnemyIds: [], ...(hasRingBoundary ? { arcFacing: facing } : {}) } }
+        events.push({ type: 'classEffectResolved', classId: 'forgeguard', cardId: 'reforge-relocation', effect: '回爐移釘', targetIds: [] })
+      } else if (classObjects.forgeNail === null || !hasDoubleNail) {
+        // 第二枚釘需等 Q 的 7.4 秒冷卻才可建立；保留額外操作窗，
+        // 讓玩家能真的接第三段壓力與 E 格擋，而不是只在資料上短暫同時存在。
+        classObjects = { ...classObjects, forgeNail: { position: nailPosition, ticksRemaining: secondsToTicks(hasDoubleNail ? 15 : hasReforgeRelocation ? 8.2 : 4.4), pressuredEnemyIds: [], ...(hasRingBoundary ? { arcFacing: facing } : {}) } }
+      } else {
+        // 第二枚釘不覆蓋第一枚；兩釘之間的低矮熔鏈成為 E 的收束幾何。
+        const caughtIds = workingEnemies
+          .filter((enemy) => enemy.hp > 0 && distanceToSegment(enemy.position, classObjects.forgeNail!.position, nailPosition) <= 0.5)
+          .map((enemy) => enemy.id)
+        classObjects = {
+          ...classObjects,
+          forgeNail: { ...classObjects.forgeNail, pressuredEnemyIds: caughtIds },
+          sealNail: { position: nailPosition, ticksRemaining: secondsToTicks(15), pressuredEnemyIds: caughtIds },
+        }
+        workingEnemies = workingEnemies.map((enemy) => caughtIds.includes(enemy.id)
+          ? { ...enemy, position: add(enemy.position, scale(normalize(sub(add(classObjects.forgeNail!.position, nailPosition), enemy.position)), 0.34)), velocity: { x: 0, y: 0 }, locomotion: 'recover' }
+          : enemy)
+        doubleNailTargetIds = caughtIds
+      }
+      if (hasDoubleNail && doubleNailTargetIds !== undefined) events.push({ type: 'classEffectResolved', classId: 'forgeguard', cardId: 'double-nail-seal', effect: '雙釘封口', targetIds: doubleNailTargetIds })
+      if (hasFireHook) {
+        // 僅拖拉防區邊緣、沒有傷害，避免 Q 取代讀招與 E 的責任。
+        const hookedTargetIds: string[] = []
+        workingEnemies = workingEnemies.map((enemy) => {
+          const d = distance(enemy.position, nailPosition)
+          if (enemy.hp <= 0 || d < 1.2 || d > 4.4) return enemy
+          const toward = normalize(sub(nailPosition, enemy.position))
+          hookedTargetIds.push(enemy.id)
+          return { ...enemy, position: clampToArena(add(enemy.position, scale(toward, 0.75))), velocity: { x: 0, y: 0 }, locomotion: 'recover' }
+        })
+        if (hookedTargetIds.length > 0) events.push({ type: 'classEffectResolved', classId: 'forgeguard', cardId: 'fire-hook', effect: '引火鉤', targetIds: hookedTargetIds })
+      }
+      if (hasRingBoundary) events.push({ type: 'classEffectResolved', classId: 'forgeguard', cardId: 'ring-forged-boundary', effect: '環鑄界線', targetIds: [] })
+      qCooldown = secondsToTicks(hasDoubleNail ? 7.4 : 7)
+      events.push({ type: 'qCast' })
+    } else if (classId === 'shadowline-hunter' && (hasClassCard('double-line-return') || hasClassCard('gap-marking') || hasClassCard('reverse-mark-anchor') || hasClassCard('loop-tether'))) {
+      // 雙線與標定是兩個可疊合的 Q 管線：前者保留第二條短命折返線，後者
+      // 將命中寬度收窄為精準標定。任一張不會因另一張已投資而失效。
+      const hasLoopTether = hasClassCard('loop-tether')
+      // 環扣索改變的是線的幾何（彎折控制點），雙線折返改變的是線的數量。
+      // 兩者可以同時成立：每條折返線都保留可繪製的彎線資料，第二次 Q
+      // 也仍會建立 returnLine；不能以 loop-tether 靜默吃掉雙線構築。
+      const hasDoubleLine = hasClassCard('double-line-return')
+      const hasGapMarking = hasClassCard('gap-marking')
+      const hasReverseAnchor = hasClassCard('reverse-mark-anchor')
+      const end = clampToArena(add(position, scale(facing, 4.3)))
+      const segment = sub(end, position)
+      const lengthSquared = segment.x * segment.x + segment.y * segment.y
+      const markedEnemyIds = workingEnemies.filter((enemy) => {
+        if (enemy.hp <= 0) return false
+        const offset = sub(enemy.position, position)
+        const projection = Math.max(0, Math.min(1, (offset.x * segment.x + offset.y * segment.y) / lengthSquared))
+        return distance(enemy.position, add(position, scale(segment, projection))) <= (hasGapMarking ? 0.52 : 0.75)
+      }).map((enemy) => enemy.id)
+      const anchor = hasReverseAnchor
+        ? workingEnemies.filter((enemy) => markedEnemyIds.includes(enemy.id)).sort((a, b) => distance(position, a.position) - distance(position, b.position))[0]
+        : undefined
+      const lineEnd = anchor?.position ?? end
+      // 折返線必須至少存活至 Q 冷卻結束，否則「雙線」只會在資料上存在、
+      // 實戰永遠無法形成第二條線。
+      const curveControl = hasLoopTether
+        ? clampToArena(add(add(position, scale(segment, 0.5)), scale({ x: -facing.y, y: facing.x }, 1.15)))
+        : undefined
+      const nextLine = {
+        start: position,
+        end: lineEnd,
+        ticksRemaining: secondsToTicks(hasDoubleLine ? 7.2 : 3.8),
+        markedEnemyIds,
+        residualEnemyIds: [],
+        ...(anchor === undefined ? {} : { anchorEnemyId: anchor.id }),
+        ...(hasDoubleLine ? { kind: 'double-line' as const } : hasLoopTether ? { kind: 'loop-tether' as const } : {}),
+        ...(curveControl === undefined ? {} : { curveControl }),
+      }
+      classObjects = !hasDoubleLine || classObjects.shadowLine === null
+        ? { ...classObjects, shadowLine: nextLine }
+        : { ...classObjects, returnLine: nextLine }
+      qCooldown = secondsToTicks(hasDoubleLine ? 6.5 : 5.8)
+      events.push({ type: 'qCast' })
+      if (hasLoopTether) events.push({ type: 'classEffectResolved', classId: 'shadowline-hunter', cardId: 'loop-tether', effect: '環扣索', targetIds: markedEnemyIds })
+      if (hasDoubleLine && classObjects.returnLine !== undefined) events.push({ type: 'classEffectResolved', classId: 'shadowline-hunter', cardId: 'double-line-return', effect: '雙線折返', targetIds: markedEnemyIds })
+      if (hasGapMarking && markedEnemyIds.length > 0) events.push({ type: 'classEffectResolved', classId: 'shadowline-hunter', cardId: 'gap-marking', effect: '獵隙標定', targetIds: markedEnemyIds })
+      if (anchor !== undefined) events.push({ type: 'classEffectResolved', classId: 'shadowline-hunter', cardId: 'reverse-mark-anchor', effect: '逆標吊點', targetIds: [anchor.id] })
+    } else if (hasMark('mirror-plating')) {
       mirrorStanceTicks = secondsToTicks(markEffectNumber('mirror-plating', 'stance_duration_s'))
       qCooldown = secondsToTicks(markEffectNumber('mirror-plating', 'q_cooldown_s'))
       events.push({ type: 'qCast' })
@@ -433,7 +646,65 @@ export function resolvePlayerTick(
   //    其餘情況為基礎版破隙衝擊。
   // ---------------------------------------------------------------------
   if (eEdge && eCooldown <= 0) {
-    if (hasMark('ember-sacrifice')) {
+    if (classId === 'forgeguard' && (hasClassCard('pressure-furnace-roar') || hasClassCard('iron-curtain-recall') || hasClassCard('corner-pivot') || hasClassCard('molten-lock-retreat'))) {
+      // 空按只有短格擋窗，沒有隱性收益；成功格擋後才由 run.ts 兌現防區反震。
+      mirrorStanceTicks = secondsToTicks(0.24)
+      eCooldown = secondsToTicks(5.5)
+      events.push({ type: 'eCast' })
+    } else if (classId === 'shadowline-hunter' && (hasClassCard('returning-rend') || hasClassCard('residual-collection') || hasClassCard('terminal-drop') || hasClassCard('cross-line-borrow'))) {
+      const line = classObjects.shadowLine
+      const hasReturningRend = hasClassCard('returning-rend')
+      const hasResidualCollection = hasClassCard('residual-collection')
+      const hasTerminalDrop = hasClassCard('terminal-drop')
+      const hasCrossLineBorrow = hasClassCard('cross-line-borrow')
+      if (line === null || (hasResidualCollection && !hasReturningRend && !hasTerminalDrop && line.residualEnemyIds.length === 0)) {
+        events.push({ type: 'eFailed' })
+      } else {
+        const terminalTarget = hasTerminalDrop
+          ? workingEnemies.filter((enemy) => line.markedEnemyIds.includes(enemy.id) && enemy.hp > 0).sort((a, b) => distance(position, a.position) - distance(position, b.position))[0]
+          : undefined
+        // 斷端落刃不能把「線端剛好跟著吊點」誤當成已落在吊點；必須真的有被標記
+        // 的落刃目標。否則保留位置並讓 run.ts 輸出可追溯的未落於吊點。
+        if (hasTerminalDrop && terminalTarget === undefined) {
+          events.push({ type: 'eFailed' })
+        } else {
+          const crossLine = classObjects.returnLine?.kind === 'double-line' ? classObjects.returnLine : undefined
+          const origin = position
+          position = hasCrossLineBorrow && crossLine !== undefined ? crossLine.end : terminalTarget?.position ?? line.end
+          if (hasCrossLineBorrow && crossLine !== undefined) {
+            classObjects = { ...classObjects, crossBorrow: { start: origin, end: crossLine.end, ticksRemaining: secondsToTicks(1.1) } }
+            events.push({ type: 'classEffectResolved', classId: 'shadowline-hunter', cardId: 'cross-line-borrow', effect: '跨線借位', targetIds: [...new Set([...line.markedEnemyIds, ...crossLine.markedEnemyIds])] })
+          }
+          if (hasTerminalDrop && terminalTarget !== undefined) {
+          const retreat = normalize(sub(line.start, position))
+          const exit = clampToArena(add(position, scale(retreat, Math.min(1.5, distance(position, line.start)))))
+          classObjects = { ...classObjects, returnLine: { start: position, end: exit, ticksRemaining: secondsToTicks(3.4), markedEnemyIds: [], residualEnemyIds: [], kind: 'return-exit' } }
+          events.push({ type: 'classEffectResolved', classId: 'shadowline-hunter', cardId: 'terminal-drop', effect: '斷端落刃', targetIds: [terminalTarget.id] })
+        }
+          if (hasReturningRend) {
+          // 到線端後向起點回看，僅狹窄線帶中的敵人受回斬，不是免費全圖清場。
+          const rendTargetIds = workingEnemies.filter((enemy) => enemy.hp > 0 && distanceToSegment(enemy.position, line.start, line.end) <= 0.42).map((enemy) => enemy.id)
+          for (const enemy of workingEnemies) {
+            if (rendTargetIds.includes(enemy.id)) damageEnemy(enemy.id, 13)
+          }
+          if (rendTargetIds.length > 0) events.push({ type: 'classEffectResolved', classId: 'shadowline-hunter', cardId: 'returning-rend', effect: '回身割裂', targetIds: rendTargetIds })
+        }
+          if (hasResidualCollection && line.residualEnemyIds.length > 0) {
+          const targetIds = line.residualEnemyIds.filter((id) => workingEnemies.some((enemy) => enemy.id === id && enemy.hp > 0))
+          for (const id of targetIds) {
+            damageEnemy(id, 14)
+            knockback(id, line.start)
+          }
+          // 回身割裂仍需讀到原本的主線來驗證折返落點，因此只清殘切而不靜默移除線。
+          classObjects = { ...classObjects, shadowLine: hasReturningRend ? { ...line, residualEnemyIds: [] } : null }
+          if (targetIds.length > 0) events.push({ type: 'classEffectResolved', classId: 'shadowline-hunter', cardId: 'residual-collection', effect: '殘切回收', targetIds })
+          events.push({ type: 'resonanceResolved', classId: 'shadowline-hunter', resonance: '線路收割', targetIds })
+        }
+          eCooldown = secondsToTicks(hasReturningRend ? 7.8 : 7)
+          events.push({ type: 'eCast' })
+        }
+      }
+    } else if (hasMark('ember-sacrifice')) {
       const armed = emberCores.filter((core) => core.armTicksRemaining <= 0)
       if (armed.length === 0) events.push({ type: 'eFailed' })
       else {
@@ -528,6 +799,50 @@ export function resolvePlayerTick(
   }
   if (pursuitTicks > 0) pursuitTicks -= 1
   if (mirrorStanceTicks > 0) mirrorStanceTicks -= 1
+  if (classObjects.forgeNail !== null) {
+    const remaining = classObjects.forgeNail.ticksRemaining - 1
+    classObjects = { ...classObjects, forgeNail: remaining > 0 ? { ...classObjects.forgeNail, ticksRemaining: remaining } : null }
+  }
+  if (classObjects.sealNail !== undefined) {
+    const remaining = classObjects.sealNail.ticksRemaining - 1
+    classObjects = remaining > 0 ? { ...classObjects, sealNail: { ...classObjects.sealNail, ticksRemaining: remaining } } : { ...classObjects, sealNail: undefined }
+  }
+  if (classObjects.shadowLine !== null) {
+    const remaining = classObjects.shadowLine.ticksRemaining - 1
+    classObjects = { ...classObjects, shadowLine: remaining > 0 ? { ...classObjects.shadowLine, ticksRemaining: remaining } : null }
+  }
+  if (classObjects.returnLine !== undefined) {
+    const remaining = classObjects.returnLine.ticksRemaining - 1
+    classObjects = remaining > 0 ? { ...classObjects, returnLine: { ...classObjects.returnLine, ticksRemaining: remaining } } : { ...classObjects, returnLine: undefined }
+  }
+  if (classObjects.breachPoint !== undefined) {
+    const remaining = classObjects.breachPoint.ticksRemaining - 1
+    classObjects = remaining > 0 ? { ...classObjects, breachPoint: { ...classObjects.breachPoint, ticksRemaining: remaining } } : { ...classObjects, breachPoint: undefined }
+  }
+  if (classObjects.facingLock !== undefined) {
+    const remaining = classObjects.facingLock.ticksRemaining - 1
+    classObjects = remaining > 0 ? { ...classObjects, facingLock: { ...classObjects.facingLock, ticksRemaining: remaining } } : { ...classObjects, facingLock: undefined }
+  }
+  if (classObjects.pivotSweep !== undefined) {
+    const remaining = classObjects.pivotSweep.ticksRemaining - 1
+    classObjects = remaining > 0 ? { ...classObjects, pivotSweep: { ...classObjects.pivotSweep, ticksRemaining: remaining } } : { ...classObjects, pivotSweep: undefined }
+  }
+  if (classObjects.forgeTether !== undefined) {
+    const remaining = classObjects.forgeTether.ticksRemaining - 1
+    classObjects = remaining > 0 ? { ...classObjects, forgeTether: { ...classObjects.forgeTether, ticksRemaining: remaining } } : { ...classObjects, forgeTether: undefined }
+  }
+  if (classObjects.moltenLock !== undefined) {
+    const remaining = classObjects.moltenLock.ticksRemaining - 1
+    classObjects = remaining > 0 ? { ...classObjects, moltenLock: { ...classObjects.moltenLock, ticksRemaining: remaining } } : { ...classObjects, moltenLock: undefined }
+  }
+  if (classObjects.crossBorrow !== undefined) {
+    const remaining = classObjects.crossBorrow.ticksRemaining - 1
+    classObjects = remaining > 0 ? { ...classObjects, crossBorrow: { ...classObjects.crossBorrow, ticksRemaining: remaining } } : { ...classObjects, crossBorrow: undefined }
+  }
+  if (classObjects.shadowLine?.anchorEnemyId !== undefined) {
+    const anchor = workingEnemies.find((enemy) => enemy.id === classObjects.shadowLine!.anchorEnemyId && enemy.hp > 0)
+    if (anchor !== undefined) classObjects = { ...classObjects, shadowLine: { ...classObjects.shadowLine, end: anchor.position } }
+  }
 
   const nextPlayer: PlayerState = {
     position: clampToArena(position),
@@ -545,6 +860,7 @@ export function resolvePlayerTick(
     pursuitTicksRemaining: pursuitTicks,
     aftershockBonusReady,
     mirrorStanceTicksRemaining: mirrorStanceTicks,
+    classObjects,
   }
 
   return { player: nextPlayer, enemies: workingEnemies, events }

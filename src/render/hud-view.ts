@@ -4,8 +4,9 @@
  * 沿用 `src/input/rebind-panel.ts` 的既有慣例：邏輯（這裡）有測試，DOM 接線
  * （那裡）沒有測試，因為所有可驗證的邏輯都已經在這裡覆蓋。
  */
-import { TICK_SECONDS, type GameState, type MarkId } from '../core/index.js'
+import { CLASS_LABELS, classCard, TICK_SECONDS, type GameState, type MarkId } from '../core/index.js'
 import type { ActionId, BindingsState } from '../input/index.js'
+import { ACTION_SLOT_CONTENT } from './action-slot-content.js'
 import { draftCardContent, type DraftCardContent } from './mark-content.js'
 import { describeDungeonScene } from './dungeon-view.js'
 
@@ -29,7 +30,7 @@ export type HudViewModel = {
   readonly eCooldownSecondsRemaining: number
   readonly phaseLabel: string
   readonly selectedMarkName: string | null
-  readonly selectedBuild: readonly { readonly id: MarkId; readonly name: string; readonly school: DraftCardContent['school'] }[]
+  readonly selectedBuild: readonly { readonly id: string; readonly name: string; readonly school: DraftCardContent['school']; readonly slotBadge: string | null }[]
   readonly draftNumber: number
   readonly showDraft: boolean
   readonly draftCards: readonly DraftCardContent[]
@@ -38,10 +39,24 @@ export type HudViewModel = {
   readonly objective: string
   readonly selectedMarkId: MarkId | null
   readonly actionSlots: readonly ActionSlot[]
+  /** Gate 2 職業 Draft 與 1.0 印記 Draft 使用不同卡片格式，避免互相假裝是同一種內容。 */
+  readonly showClassDraft: boolean
+  readonly classDraftCards: readonly ClassDraftCard[]
+  readonly resonanceLog: readonly string[]
+}
+
+export type ClassDraftCard = {
+  readonly id: string
+  readonly slotBadge: '左鍵' | 'Q' | 'E'
+  readonly name: string
+  readonly creates: string
+  readonly consumes: string | null
+  readonly tradeoff: string
 }
 
 export type ActionSlot = {
   readonly id: 'attack' | 'dodge' | 'skillQ' | 'skillE'
+  readonly slotBadge: string
   readonly label: string
   readonly binding: string
   readonly cooldownPercent: number
@@ -77,10 +92,6 @@ function banner(state: GameState): Banner {
   return null
 }
 
-const ACTION_LABELS: Readonly<Record<ActionSlot['id'], string>> = {
-  attack: '斬擊', dodge: '閃避', skillQ: '戰技 Q', skillE: '戰技 E',
-}
-
 export function bindingLabel(code: string | null): string {
   if (code === null) return '未綁定'
   if (code === 'Mouse0') return '滑鼠左鍵'
@@ -100,12 +111,24 @@ function actionSlots(state: GameState, bindings?: BindingsState): readonly Actio
     const maximum = id === 'dodge' ? 0.8 : id === 'skillQ' ? 2 : id === 'skillE' ? 3 : 1
     return {
       id,
-      label: ACTION_LABELS[id],
+      slotBadge: ACTION_SLOT_CONTENT[id].badge,
+      label: ACTION_SLOT_CONTENT[id].label,
       binding: bindingLabel(codes[id] ?? ({ attack: 'Mouse0', dodge: 'Space', skillQ: 'KeyQ', skillE: 'KeyE' } as const)[id]),
       cooldownPercent: Math.max(0, Math.min(100, seconds / maximum * 100)),
       cooldownSeconds: seconds,
       failed: id === 'skillE' && state.events.some((event) => event.type === 'eFailed'),
     }
+  })
+}
+
+function classSlotBadge(slot: 'primary' | 'q' | 'e'): ClassDraftCard['slotBadge'] {
+  return slot === 'primary' ? '左鍵' : slot.toUpperCase() as 'Q' | 'E'
+}
+
+function classDraftCards(state: GameState): readonly ClassDraftCard[] {
+  return state.forgeOptions.flatMap((id) => {
+    const card = classCard(id)
+    return card === undefined ? [] : [{ id: card.id, slotBadge: classSlotBadge(card.slot), name: card.name, creates: card.creates, consumes: card.consumes, tradeoff: card.tradeoff }]
   })
 }
 
@@ -118,18 +141,24 @@ export function buildHudViewModel(state: GameState, bindings?: BindingsState): H
     qCooldownSecondsRemaining: cooldownSeconds(state.player.qCooldownTicksRemaining),
     eCooldownSecondsRemaining: cooldownSeconds(state.player.eCooldownTicksRemaining),
     phaseLabel: PHASE_LABELS[state.phase],
-    selectedMarkName: markName(state.selectedMark),
-    selectedBuild: state.selectedMarks.map((id) => {
+    selectedMarkName: state.classId === null ? markName(state.selectedMark) : CLASS_LABELS[state.classId],
+    selectedBuild: state.classId === null ? state.selectedMarks.map((id) => {
       const card = draftCardContent(id)
-      return { id, name: card.name, school: card.school }
+      return { id, name: card.name, school: card.school, slotBadge: null }
+    }) : state.selectedClassCards.flatMap((id) => {
+      const card = classCard(id)
+      return card === undefined ? [] : [{ id: card.id, name: card.name, school: state.classId === 'forgeguard' ? 'guard' as const : 'shadow' as const, slotBadge: classSlotBadge(card.slot) }]
     }),
     draftNumber: Math.min(6, state.encounterIndex + 2),
-    showDraft: state.phase === 'draft',
+    showDraft: state.phase === 'draft' && state.classId === null,
     draftCards: (state.draftOptions.length > 0 ? state.draftOptions : FIRST_DRAFT).map((id) => draftCardContent(id)),
     banner: banner(state),
     roomName: scene.roomName,
     objective: scene.objective,
     selectedMarkId: state.selectedMark,
     actionSlots: actionSlots(state, bindings),
+    showClassDraft: state.phase === 'draft' && state.classId !== null,
+    classDraftCards: state.classId === null ? [] : classDraftCards(state),
+    resonanceLog: state.resonanceLog,
   }
 }

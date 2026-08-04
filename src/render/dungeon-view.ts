@@ -53,6 +53,14 @@ export function precisionSlowMotionVisualCue(active: boolean, progress: number):
   }
 }
 
+/** 可測的 render 契約：轉掃不是只存在於 core event，而是有戰場中央 VFX。 */
+export function pivotSweepVisualCue(state: GameState): { readonly visible: boolean; readonly position: Vector2 | null; readonly direction: Vector2 | null; readonly radiusUnits: number } {
+  const sweep = state.player.classObjects.pivotSweep
+  return sweep === undefined
+    ? { visible: false, position: null, direction: null, radiusUnits: 0 }
+    : { visible: true, position: sweep.position, direction: sweep.direction, radiusUnits: 1.4 }
+}
+
 export function describeDungeonScene(phase: RunPhase, aliveEnemies: number, encounterIndex = 0): DungeonSceneDescription {
   if (phase === 'encounter1') return { room: 'forge-entry', roomName: '溶爐前庭・熄火前室', objective: `擊敗焰奴 ${aliveEnemies === 0 ? '1/1' : '0/1'}`, nextDoorOpen: aliveEnemies === 0 }
   if (phase === 'encounter2') return { room: 'forge-hall', roomName: '溶爐前庭・鑄火大廳', objective: `擊敗敵人 ${3 - aliveEnemies}/3`, nextDoorOpen: aliveEnemies === 0 }
@@ -338,6 +346,115 @@ function drawDodgeTrail(ctx: CanvasRenderingContext2D, state: GameState, vfx: Vf
 }
 
 function drawResources(ctx: CanvasRenderingContext2D, state: GameState): void {
+  // Gate 2 職業物件不依賴 HUD：爐釘、防區、影線與殘切都直接留在戰場中央。
+  const forgeNail = state.player.classObjects.forgeNail
+  if (forgeNail !== null) {
+    const p = worldToDungeon(forgeNail.position)
+    if (forgeNail.arcFacing === undefined) {
+      ring(ctx, PIXEL_PALETTE.ember, p.x, p.y, 2.4 * WORLD_PIXELS_PER_UNIT, 2)
+    } else {
+      // 環鑄界線故意留缺口：弧牆直接告訴玩家該守哪個角、哪側會漏人。
+      const angle = Math.atan2(forgeNail.arcFacing.y, forgeNail.arcFacing.x)
+      ctx.strokeStyle = PIXEL_PALETTE.ember
+      ctx.lineWidth = 3
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, 2.4 * WORLD_PIXELS_PER_UNIT, angle - Math.PI * 0.68, angle + Math.PI * 0.68)
+      ctx.stroke()
+    }
+    ctx.fillStyle = PIXEL_PALETTE.guard
+    ctx.fillRect(Math.round(p.x - 3), Math.round(p.y - 11), 6, 22)
+    ctx.fillStyle = PIXEL_PALETTE.flame
+    ctx.fillRect(Math.round(p.x - 7), Math.round(p.y + 7), 14, 4)
+    for (const id of forgeNail.pressuredEnemyIds) {
+      const enemy = state.enemies.find((candidate) => candidate.id === id && candidate.hp > 0)
+      if (enemy === undefined) continue
+      const point = worldToDungeon(enemy.position)
+      ring(ctx, PIXEL_PALETTE.flame, point.x, point.y - 14, 8, 2)
+    }
+  }
+  const breach = state.player.classObjects.breachPoint
+  if (breach !== undefined) {
+    const point = worldToDungeon(breach.position)
+    // 楔點不是泛用傷害圖示：地面釘與朝向短桿可讀出下一次 E 可繞它轉掃。
+    ring(ctx, PIXEL_PALETTE.guard, point.x, point.y - 10, 12, 2)
+    line(ctx, PIXEL_PALETTE.flame, [[point.x - 9, point.y - 10], [point.x + 9, point.y - 10]], 3)
+    rectSpark(ctx, PIXEL_PALETTE.bone, point.x, point.y - 10, 7)
+  }
+  const pivotSweep = state.player.classObjects.pivotSweep
+  if (pivotSweep !== undefined) {
+    const point = worldToDungeon(pivotSweep.position)
+    // 成功格擋後的金色轉掃留在場上數個 tick，讓守角轉軸不靠事件文字才可辨。
+    const sweepAngle = Math.atan2(pivotSweep.direction.y, pivotSweep.direction.x)
+    ctx.strokeStyle = PIXEL_PALETTE.flame
+    ctx.lineWidth = 4
+    ctx.beginPath()
+    ctx.arc(point.x, point.y - 10, 31, sweepAngle - Math.PI * 0.72, sweepAngle + Math.PI * 0.72)
+    ctx.stroke()
+    rectSpark(ctx, PIXEL_PALETTE.bone, point.x + pivotSweep.direction.x * 26, point.y - 10 + pivotSweep.direction.y * 26, 6)
+  }
+  const tether = state.player.classObjects.forgeTether
+  if (tether !== undefined) {
+    const start = worldToDungeon(tether.start)
+    const end = worldToDungeon(tether.end)
+    // 定錨火索把「第三段後退」的原因直接留在人物與爐釘之間。
+    line(ctx, PIXEL_PALETTE.outline, [[start.x, start.y - 10], [end.x, end.y - 10]], 5)
+    line(ctx, PIXEL_PALETTE.flame, [[start.x, start.y - 10], [end.x, end.y - 10]], 2)
+  }
+  const moltenLock = state.player.classObjects.moltenLock
+  if (moltenLock !== undefined) {
+    const start = worldToDungeon(moltenLock.start)
+    const end = worldToDungeon(moltenLock.end)
+    line(ctx, PIXEL_PALETTE.guard, [[start.x, start.y - 10], [end.x, end.y - 10]], 5)
+    ring(ctx, PIXEL_PALETTE.flame, end.x, end.y - 10, 12, 2)
+  }
+  const sealNail = state.player.classObjects.sealNail
+  if (forgeNail !== null && sealNail !== undefined) {
+    const p = worldToDungeon(forgeNail.position)
+    const seal = worldToDungeon(sealNail.position)
+    // 雙釘之間的低矮熔鏈：不依賴 HUD，玩家可直接判斷封口回收的成立區。
+    line(ctx, PIXEL_PALETTE.outline, [[p.x, p.y + 4], [seal.x, seal.y + 4]], 6)
+    line(ctx, PIXEL_PALETTE.flame, [[p.x, p.y + 4], [seal.x, seal.y + 4]], 2)
+    ring(ctx, PIXEL_PALETTE.ember, seal.x, seal.y, 1.7 * WORLD_PIXELS_PER_UNIT, 2)
+  }
+  const shadowLine = state.player.classObjects.shadowLine
+  if (shadowLine !== null) {
+    const start = worldToDungeon(shadowLine.start)
+    const end = worldToDungeon(shadowLine.end)
+    const curve = shadowLine.curveControl === undefined ? undefined : worldToDungeon(shadowLine.curveControl)
+    const points: readonly (readonly [number, number])[] = curve === undefined
+      ? [[start.x, start.y - 10], [end.x, end.y - 10]]
+      : [[start.x, start.y - 10], [curve.x, curve.y - 10], [end.x, end.y - 10]]
+    line(ctx, PIXEL_PALETTE.outline, points, 7)
+    line(ctx, PIXEL_PALETTE.cyan, points, 3)
+    ring(ctx, PIXEL_PALETTE.shadow, end.x, end.y - 10, 8, 2)
+    if (shadowLine.anchorEnemyId !== undefined) {
+      // 吊點以危險脈衝標出：敵人預兆與玩家的逃離路徑共用同一戰場語彙。
+      ring(ctx, PIXEL_PALETTE.flame, end.x, end.y - 10, 13 + (state.tick % 12), 2)
+    }
+    for (const id of shadowLine.residualEnemyIds) {
+      const enemy = state.enemies.find((candidate) => candidate.id === id && candidate.hp > 0)
+      if (enemy === undefined) continue
+      const point = worldToDungeon(enemy.position)
+      rectSpark(ctx, PIXEL_PALETTE.cyan, point.x, point.y - 14, 8)
+    }
+  }
+  const returnLine = state.player.classObjects.returnLine
+  if (returnLine !== undefined) {
+    const start = worldToDungeon(returnLine.start)
+    const end = worldToDungeon(returnLine.end)
+    // 第二條線／回走線用不同脈衝色，不把它混成第一條的裝飾，端點可在戰場中央讀取。
+    line(ctx, PIXEL_PALETTE.outline, [[start.x, start.y - 10], [end.x, end.y - 10]], 7)
+    line(ctx, PIXEL_PALETTE.shadow, [[start.x, start.y - 10], [end.x, end.y - 10]], 3)
+    ring(ctx, PIXEL_PALETTE.cyan, end.x, end.y - 10, 9, 2)
+    if (returnLine.kind === 'return-exit') rectSpark(ctx, PIXEL_PALETTE.bone, end.x, end.y - 10, 8)
+  }
+  const crossBorrow = state.player.classObjects.crossBorrow
+  if (crossBorrow !== undefined) {
+    const start = worldToDungeon(crossBorrow.start)
+    const end = worldToDungeon(crossBorrow.end)
+    line(ctx, PIXEL_PALETTE.bone, [[start.x, start.y - 10], [end.x, end.y - 10]], 4)
+    rectSpark(ctx, PIXEL_PALETTE.cyan, end.x, end.y - 10, 9)
+  }
   for (const core of state.player.emberCores) {
     const p = worldToDungeon(core.position)
     ctx.fillStyle = PIXEL_PALETTE.outline
